@@ -1,0 +1,28 @@
+{% extends 'account/account_base.html' %}
+{% load i18n %}
+
+{% block title_prefix %}
+    {% trans '邮箱验证' %}
+    {% if validlink %}
+        {% trans '成功' %}
+    {% else %}
+        {% trans '失败' %}
+    {% endif %}
+
+{% endblock %}
+
+{% block main %}
+    <div class="jumbotron">
+        {% if validlink %}
+            <h1 class="display-4">{% trans '邮箱验证成功' %}</h1>
+            <p>
+                {% trans '您已经成功验证了您所留的邮箱地址。' %}
+            </p>
+        {% else %}
+            <h1 class="display-4">{% trans '链接无效' %}</h1>
+            <p>
+                {% trans '您提供的邮箱验证链接无效。' %}
+            </p>
+        {% endif %}
+    </div>
+{% endblock %}

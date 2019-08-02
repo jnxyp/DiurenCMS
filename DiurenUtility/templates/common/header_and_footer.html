@@ -1,0 +1,23 @@
+{% extends 'common/base.html' %}
+{% block body %}
+    <header class="sticky-top mb-auto bg-dark">
+        {% block header %}
+            <nav class="navbar navbar-light bg-dark">
+                <a class="navbar-brand" href="#">{{ SETTINGS.VERBOSE_NAME }}</a>
+            </nav>
+        {% endblock %}
+    </header>
+
+    <main class="container my-2">
+        {% block main %}
+        {% endblock %}
+    </main>
+
+    <footer class="py-2 mt-3 bg-dark">
+        {% block footer %}
+            <div class="mx-2">
+                <span class="text-muted small">{{ SETTINGS.COPYRIGHT|safe }}</span>
+            </div>
+        {% endblock %}
+    </footer>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends 'account/account_base.html' %}
+{% load i18n %}
+
+{% block title_prefix %}{% trans '邮箱验证邮件已发送' %}{% endblock %}
+
+{% block main %}
+    <div class="jumbotron">
+        <h1 class="display-4">{% trans '邮箱验证邮件已发送' %}</h1>
+        <p>
+            {% trans '我们已经向您提供的邮箱发送了一封包含邮箱验证链接的邮件，请查收。' %}
+        </p>
+        <p>
+            {% trans '如果没有收到邮件，请检查您输入的邮箱是否正确，并检查垃圾邮件文件夹。' %}
+        </p>
+    </div>
+{% endblock %}

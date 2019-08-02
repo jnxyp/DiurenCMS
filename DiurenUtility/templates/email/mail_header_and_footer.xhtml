@@ -1,0 +1,27 @@
+{% extends 'email/mail_base.xhtml' %}
+{% block body %}
+    <table>
+        <tbody>
+        <tr>
+            <th>
+                <h2>{{ SETTINGS.VERBOSE_NAME }}</h2>
+            </th>
+        </tr>
+        <tr>
+            <td>
+                {% block main %}
+                {% endblock %}
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <p>
+                    <b>
+                        {{ SETTINGS.COPYRIGHT }}
+                    </b>
+                </p>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+{% endblock %}

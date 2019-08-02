@@ -1,0 +1,68 @@
+{% load i18n %}
+{% load static %}
+{% load boolean_localize %}
+{% if user.is_authenticated %}
+    <div class="my-4">
+        <div id="avatar" class="mr-5 d-inline">
+            <img class="rounded" style="max-width: 50%; max-height: 10rem"
+                 src="{{ user.profile.avatar_url }}"
+                 alt={% trans '头像' %}>
+        </div>
+        <div class="d-inline-block">
+            <h1 class="display-1 d-inline text-white">{{ user.profile.name }}</h1>
+            <h2 class="display-4 d-inline text-secondary">#{{ user.id }}</h2>
+        </div>
+    </div>
+    <div class="row">
+        <table class="table table-hover col-md-6 mr-2">
+            <tr>
+                <th>{% trans '用户资料' %}</th>
+            </tr>
+            <tr>
+                <td>{% trans '用户名' %}:</td>
+                <td>{{ user.username }}</td>
+            </tr>
+            <tr>
+                <td>{% trans '邮箱地址' %}:</td>
+                <td>{{ user.email|default:_('不可用') }}</td>
+            </tr>
+            <tr>
+                <td>{% trans '上次登录时间' %}:</td>
+                <td>{{ user.last_login|date|default:_('不可用') }}</td>
+            </tr>
+            <tr>
+                <td>{% trans '注册日期' %}:</td>
+                <td>{{ user.date_joined|date|default:_('不可用') }}</td>
+            </tr>
+        </table>
+        {% if user.profile %}
+            {% with p=user.profile %}
+                <table class="table table-hover col-md-5 mr-2">
+                    <tr>
+                        <th>{% trans '个人设置' %}</th>
+                    </tr>
+                    <tr>
+                        <td>{% trans '偏好语言' %}:</td>
+                        <td>{{ p.language_name }}</td>
+                    </tr>
+                    <tr>
+                        <td>{% trans '邮箱已激活' %}:</td>
+                        <td>{{ p.email_activated|boolean_localize }}</td>
+                    </tr>
+                    <tr>
+                        <td>{% trans '昵称' %}:</td>
+                        <td>{{ p.nick|default:_("未设定") }}</td>
+                    </tr>
+                </table>
+            {% endwith %}
+        {% endif %}
+    </div>
+{% else %}
+    <div class="my-4">
+        <h1 class="display-2 d-inline text-white">{% trans '匿名用户' %}</h1>
+        <h2 class="display-4 d-inline text-secondary">#???</h2>
+    </div>
+    <div>
+        <p class="lead">{% trans '欢迎，请登陆或注册。' %}</p>
+    </div>
+{% endif %}

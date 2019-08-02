@@ -1,0 +1,18 @@
+{% extends 'account/account_base.html' %}
+{% load i18n %}
+
+{% block title_prefix %}{% trans '修改邮箱' %}{% endblock %}
+
+{% block main %}
+    <div class="jumbotron">
+        <h1 class="display-4">{% trans '修改邮箱' %}</h1>
+        <form method="post">
+            {% csrf_token %}
+            {% include 'utility/bootstrap_form.html' with form=form %}
+            <button role="button" type="submit" class="btn btn-primary">{% trans '提交' %}</button>
+            {% if not request.user.profile.email_activated %}
+                <button role="button" type="button" onclick="" class="btn btn-warning">{% trans '重新发送验证邮件' %}</button>
+            {% endif %}
+        </form>
+    </div>
+{% endblock %}

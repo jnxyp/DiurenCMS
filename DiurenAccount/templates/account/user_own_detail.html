@@ -1,0 +1,29 @@
+{% extends 'account/account_base.html' %}
+{% load i18n %}
+{% with user=request.user %}
+    {% block title_prefix %}{{ user.username|default:'匿名用户' }}{% endblock %}
+    {% block main %}
+        <div class="jumbotron">
+            {% include 'account/user_info_panel.html' with user=user %}
+        </div>
+        <div class="m-2">
+            {% if user.is_authenticated %}
+                <a class="btn btn-danger btn-lg" href="{% url 'DiurenAccount:logout' %}"
+                   role="button">{% trans '退出登录' %}</a>
+                <a class="btn btn-primary btn-lg" href="{% url 'DiurenAccount:change-password' %}"
+                   role="button">{% trans '修改密码' %}</a>
+                <a class="btn btn-primary btn-lg" href="{% url 'DiurenAccount:change-email' %}"
+                   role="button">{% trans '修改邮箱' %}</a>
+                <a class="btn btn-primary btn-lg" href="{% url 'DiurenAccount:change-avatar' %}"
+                   role="button">{% trans '修改头像' %}</a>
+                <a class="btn btn-info btn-lg" href="{% url 'DiurenAccount:change-profile' %}"
+                   role="button">{% trans '修改设置' %}</a>
+            {% else %}
+                <a class="btn btn-primary btn-lg" href="{% url 'DiurenAccount:login' %}"
+                   role="button">{% trans '登录系统' %}</a>
+                <a class="btn btn-success btn-lg" href="{% url 'DiurenAccount:register' %}"
+                   role="button">{% trans '注册账号' %}</a>
+            {% endif %}
+        </div>
+    {% endblock %}
+{% endwith %}

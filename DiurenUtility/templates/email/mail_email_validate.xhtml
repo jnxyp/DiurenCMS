@@ -1,0 +1,14 @@
+{% extends 'email/mail_header_and_footer.xhtml' %}
+{% load i18n %}
+{% block title %}
+    {{ SETTINGS.VERBOSE_NAME }} - {% trans '邮箱验证' %}
+{% endblock %}
+{% block main %}
+    {% blocktrans with name=SETTINGS.VERBOSE_NAME %}
+        我们收到请求，将本邮箱绑定到 {{ name }} 用户 {{ user }}。
+        如果是您本人进行的操作，请点击下方的链接以绑定此邮箱：
+    {% endblocktrans %}
+    <a href="{{ protocol }}://{{ domain }}{% url 'DiurenAccount:change-email-validate' token=token %}">
+        {% trans '验证邮箱' %}
+    </a>
+{% endblock %}

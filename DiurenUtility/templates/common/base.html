@@ -1,0 +1,22 @@
+{% load static from staticfiles %}
+<!DOCTYPE html>
+{% if request.user.is_authenticated and request.user.profile %}
+    <html lang="{{ request.user.profile.html_lang_code }}">
+{% else %}
+    <html lang="{{ SETTINGS.LANGUAGE_CODE }}">
+{% endif %}
+<head>
+    <title>{% block title %}{{ SETTINGS.VERBOSE_NAME }}{% endblock %}</title>
+
+    <link rel="stylesheet"
+          href="{% static 'theme/bootstrap-starsector.css' %}">
+    <script src="{% static 'js/jquery-3.3.1.slim.min.js' %}"></script>
+    <script src="{% static 'js/popper.min.js' %}"></script>
+    <script src="{% static 'js/bootstrap.min.js' %}"></script>
+</head>
+
+<body>
+{% block body %}
+{% endblock %}
+</body>
+</html>

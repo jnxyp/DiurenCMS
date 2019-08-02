@@ -1,0 +1,15 @@
+{% extends 'account/account_base.html' %}
+{% load i18n %}
+
+{% block title_prefix %}{% trans '注册' %}{% endblock %}
+
+{% block main %}
+    <div class="jumbotron">
+        <h1 class="display-4">{% trans '注册' %}</h1>
+        <form method="post">
+            {% csrf_token %}
+            {% include 'utility/bootstrap_form.html' with form=form %}
+            <button role="button" type="submit" value="login" class="btn btn-primary">{% trans '提交' %}</button>
+        </form>
+    </div>
+{% endblock %}

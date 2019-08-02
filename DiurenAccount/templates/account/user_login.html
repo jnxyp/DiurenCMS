@@ -1,0 +1,19 @@
+{% extends 'account/account_base.html' %}
+{% load i18n %}
+
+{% block title_prefix %}{% trans '登录' %}{% endblock %}
+
+{% block main %}
+    <div class="jumbotron">
+        <h1 class="display-4">{% trans '登录' %}</h1>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+            {% include 'utility/bootstrap_form.html' with form=form %}
+            <button role="button" type="submit" value="login"
+                    class="btn btn-primary">{% trans '登录' %}</button>
+            <a role="button" class="btn btn-success"
+               href="{% url 'DiurenAccount:reset-password' %}">{% trans '重置密码' %}</a>
+        </form>
+    </div>
+{% endblock %}

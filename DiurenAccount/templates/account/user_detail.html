@@ -1,0 +1,11 @@
+{% extends 'account/account_base.html' %}
+{% with user=object %}
+    {% block title_prefix %}{{ user.username}}{% endblock %}
+    {% block main %}
+        <div class="jumbotron">
+            {% include 'account/user_info_panel.html' %}
+        </div>
+        <div class="m-2">
+        </div>
+    {% endblock %}
+{% endwith %}

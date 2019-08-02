@@ -1,0 +1,8 @@
+{% extends 'email/mail_header_and_footer.xhtml' %}
+{% load i18n %}
+{% block title %}
+    {{ SETTINGS.VERBOSE_NAME }} - {% trans title %}
+{% endblock %}
+{% block main %}
+    {{ content }}
+{% endblock %}
