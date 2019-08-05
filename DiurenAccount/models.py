@@ -1,23 +1,23 @@
-import json
 import os
 import time
-from ast import literal_eval
-from datetime import datetime
 from io import BytesIO
 
 from PIL import Image
+
+from django.db import models
+from django.forms import forms
+from django.utils.translation import gettext, gettext_lazy as _
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.core.files import File
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.templatetags.static import static
 
-from DiurenAccount.apps import DiurenaccountConfig, AVATAR_FORMAT, AVATAR_COLOR_MODE, \
-    AVATAR_SIZE_LIMIT, logger, AVATAR_WIDTH_LIMIT, AVATAR_HEIGHT_LIMIT, EMAIL_TOKEN_EXPIRE,TOKEN_LENGTH
+from DiurenAccount.apps import AVATAR_FORMAT, AVATAR_COLOR_MODE, \
+    AVATAR_SIZE_LIMIT, logger, AVATAR_WIDTH_LIMIT, AVATAR_HEIGHT_LIMIT, EMAIL_TOKEN_EXPIRE, \
+    TOKEN_LENGTH
 from DiurenAccount.fields import FileSizeRestrictedImageField, DictField
-from django.db import models
-from django.utils.translation import gettext, gettext_lazy as _
-
 from DiurenUtility.utility import send_mail, gen_random_char_string
 
 DEFAULT_LANGUAGE_CODE = settings.LANGUAGE_CODE
@@ -29,7 +29,6 @@ def get_avatar_upload_filename(instance, filename):
 
 
 class UserProfile(models.Model):
-
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name='profile')
     nick = models.CharField(max_length=32, blank=True, null=True, verbose_name=_('昵称'))
     language = models.CharField(max_length=16, choices=AVAILABLE_LANGUAGES,
@@ -42,8 +41,8 @@ class UserProfile(models.Model):
     email_activated = models.BooleanField(verbose_name=_('邮箱已激活'), default=False)
 
     last_validation_mail_sent = models.IntegerField(default=0)
-    email_validation_tokens = DictField(default=None)
-    used_emails = DictField(default=None)
+    email_validation_tokens = DictField()
+    used_emails = DictField()
 
     def delete(self, using=None, keep_parents=False):
         # 删除对应的头像文件
@@ -157,7 +156,7 @@ class UserProfile(models.Model):
         if self.avatar:
             return self.avatar.url
         else:
-            return settings.STATIC_URL + 'account/avatar/default.gif'
+            return static('account/default.gif')
 
     def email_token_valid(self, email, token) -> bool:
         if token in self.email_validation_tokens:
@@ -187,6 +186,9 @@ class UserProfile(models.Model):
         self.send_mail(context=mail_context,
                        email_template_name='email/mail_email_validate.xhtml',
                        subject_template_name='email/mail_email_validate_subject.txt')
+        # 更新最后发送验证邮件的时间
+        self.last_validation_mail_sent = int(time.time())
+        self.save()
 
     def create_email_validation_token(self, commit=True) -> str:
         # 生成token，指定token过期时间
@@ -200,7 +202,7 @@ class UserProfile(models.Model):
         }
         if commit:
             self.save()
-        logger.debug('邮件验证Token生成：生成token %s，邮件地址 %s，过期时间 %d' % (token, email, token_expire))
+        logger.debug('邮件验证Token生成：token %s，邮件地址 %s，过期时间 %d' % (token, email, token_expire))
         return token
 
     def destroy_email_validation_token(self, token_to_destroy: str, commit=True):
@@ -208,7 +210,7 @@ class UserProfile(models.Model):
             token_info = self.email_validation_tokens.pop(token_to_destroy)
             if commit:
                 self.save()
-            logger.debug('邮件验证Token销毁：生成token %s，邮件地址 %s，过期时间 %d' % (
+            logger.debug('邮件验证Token销毁：token %s，邮件地址 %s，过期时间 %d' % (
                 token_to_destroy, token_info['email'], token_info['expire']))
             return True
         logger.debug('邮件验证Token销毁：token %s 不存在' % token_to_destroy)

@@ -59,8 +59,10 @@ ul,dl,ol{
 // 为自定义文件选择按钮添加语言，去除白边
 .custom-file-label::after{
   content: '选择文件 / Select File';
-  border-radius: initial;
   right: -1px;
+  top: -1px;
+  bottom: -1px;
+  height: auto;
 }
 
 

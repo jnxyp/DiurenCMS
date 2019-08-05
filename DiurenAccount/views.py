@@ -68,8 +68,8 @@ class DiurenEmailChangeView(LoginRequiredMixin, UpdateView):
             'request': self.request
         }
         form.save(**opts)
-        # 如果修改了邮箱，重定向到验证邮件已发送页面；如果没有修改，重定向到个人资料页面。
-        if 'email' in form.changed_data:
+        # 如果修改了邮箱/重发了邮件，重定向到验证邮件已发送页面；如果没有修改，重定向到个人资料页面。
+        if 'email' in form.changed_data or form.data['resend_validation_email']:
             self.success_url = reverse('DiurenAccount:change-email-done')
         else:
             self.success_url = reverse('DiurenAccount:self')

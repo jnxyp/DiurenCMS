@@ -13,9 +13,6 @@ DEFAULT_HEIGHT_LIMIT = 1000
 
 
 class DictField(TextField):
-    def get_internal_type(self):
-        return "DictField"
-
     def __init__(self, default=None, *args, **kwargs):
         if not default:
             default = dict()
@@ -29,7 +26,7 @@ class DictField(TextField):
         else:
             data = dict()
         if not isinstance(data, dict):
-            raise TypeError('字典字段格式非法：反序列化结果不是字典。')
+            raise TypeError('字典字段：格式非法，反序列化结果不是字典。')
         return data
 
     def to_python(self, value):
@@ -39,12 +36,12 @@ class DictField(TextField):
         else:
             data = dict()
         if not isinstance(data, dict):
-            raise TypeError('字典字段格式非法：反序列化结果不是字典。')
+            raise TypeError('字典字段：格式非法，反序列化结果不是字典。')
         return data
 
     def get_prep_value(self, value):
         logger.debug('字典字段：序列化数据 %s' % value)
-        return str(value)
+        return repr(value)
 
 
 class FileSizeRestrictedImageField(ImageField):
@@ -78,3 +75,7 @@ class FileSizeRestrictedImageField(ImageField):
             raise e
 
         return data
+
+
+if __name__ == '__main__':
+    print(str(dict()))

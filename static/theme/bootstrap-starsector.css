@@ -9837,8 +9837,10 @@ ul, dl, ol {
 
 .custom-file-label::after {
   content: "选择文件 / Select File";
-  border-radius: initial;
   right: -1px;
+  top: -1px;
+  bottom: -1px;
+  height: auto;
 }
 
 .rounded-circle-no-stretch {

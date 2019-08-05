@@ -1,5 +1,6 @@
 {% extends 'account/account_base.html' %}
 {% load i18n %}
+{% load static %}
 
 {% block title_prefix %}{% trans '修改邮箱' %}{% endblock %}
 
@@ -11,8 +12,18 @@
             {% include 'utility/bootstrap_form.html' with form=form %}
             <button role="button" type="submit" class="btn btn-primary">{% trans '提交' %}</button>
             {% if not request.user.profile.email_activated %}
-                <button role="button" type="button" onclick="" class="btn btn-warning">{% trans '重新发送验证邮件' %}</button>
+                <button role="button" type="button" id="resend_email"
+                        class="btn btn-warning">{% trans '重新发送验证邮件' %}</button>
             {% endif %}
         </form>
+        <script type="application/javascript">
+            $('#resend_email').click(
+                function () {
+                    input = $('#{{ form.resend_validation_email.id_for_label }}');
+                    input.val('True');
+                    input[0].form.submit();
+                }
+            )
+        </script>
     </div>
 {% endblock %}

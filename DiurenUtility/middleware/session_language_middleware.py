@@ -9,7 +9,6 @@ from DiurenUtility.apps import logger
 '''
 
 
-# TODO 切换到中文繁体无反应
 class SessionLanguageMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response

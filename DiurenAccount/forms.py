@@ -6,7 +6,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext, gettext_lazy as _
 
-from DiurenAccount.apps import AVATAR_MAX_ASPECT_RATIO, AVATAR_MIN_ASPECT_RATIO, EMAIL_VALIDATION_COOLDOWN
+from DiurenAccount.apps import AVATAR_MAX_ASPECT_RATIO, AVATAR_MIN_ASPECT_RATIO, \
+    EMAIL_VALIDATION_COOLDOWN
 from DiurenAccount.models import UserProfile
 
 
@@ -108,19 +109,29 @@ class EmailChangeForm(forms.ModelForm):
         model = User
         fields = ("email",)
 
-    resend_validation_email = forms.BooleanField(initial=False, widget=forms.HiddenInput())
+    resend_validation_email = forms.BooleanField(initial=False, widget=forms.HiddenInput(),
+                                                 required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def clean(self):
+        if self.data['resend_validation_email'] or 'email' in self.changed_data:
+            # 检查现在是否可以发送验证邮件（验证邮件发送间隔检查）
+            last_sent = self.instance.profile.last_validation_mail_sent
+            if int(time.time()) - last_sent < EMAIL_VALIDATION_COOLDOWN:
+                raise forms.ValidationError(
+                    _('验证邮件发送过于频繁，请稍后再试。'),
+                    code='validation_mail_throttling',
+                )
+
+            if self.instance.profile.email_activated:
+                raise forms.ValidationError(
+                    _('此邮箱已经通过验证，不需要重新发送验证邮件。')
+                )
+        return super().clean()
+
     def clean_email(self):
-        # 检查现在是否可以发送验证邮件（验证邮件发送间隔检查）
-        last_sent = self.instance.profile.last_validation_mail_sent
-        if int(time.time()) - last_sent < EMAIL_VALIDATION_COOLDOWN:
-            raise forms.ValidationError(
-                _('验证邮件发送过于频繁，请稍后再试。'),
-                code='validation_mail_throttling',
-            )
         # 检查邮箱地址是否重复
         email = self.cleaned_data.get('email')
         q = User.objects.filter(email=email)
@@ -136,7 +147,11 @@ class EmailChangeForm(forms.ModelForm):
         user = self.instance
         used_emails = user.profile.used_emails
 
-        if 'email' in self.changed_data or self.data['resend_validation_email']:
+        if self.data['resend_validation_email']:
+            # 发送邮箱验证邮件
+            user.profile.send_email_validation_mail(kwargs['extra_email_context'],
+                                                    kwargs['request'])
+        elif 'email' in self.changed_data:
             old_email = user.email
             activated = user.profile.email_activated
 
