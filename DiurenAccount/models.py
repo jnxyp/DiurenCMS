@@ -28,8 +28,53 @@ def get_avatar_upload_filename(instance, filename):
     return instance.avatar_path + filename
 
 
+def _compress_avatar(size_limit: int, format: str, image: Image.Image) -> BytesIO:
+    logger.debug('压缩图片：%s，格式： %s' % (image, format))
+    MAX_ATTEMPTS = 10
+    attempt = 1
+    if format == 'JPEG':
+        quality = 100
+        while attempt < MAX_ATTEMPTS:
+            if quality <= 0:
+                raise Exception(_('压缩失败。'))
+            logger.debug('压缩图片：JPEG模式 第%d次尝试，质量：%d' % (attempt, quality))
+            temp_io = BytesIO()
+            image.save(temp_io, format='JPEG', quality=quality, optimize=False)
+            logger.debug('压缩图片：结果大小：%d，目标：%d' % (temp_io.tell(), size_limit))
+            if temp_io.tell() > size_limit:
+                quality -= 5
+            else:
+                break
+            attempt += 1
+        return temp_io
+    elif format == 'PNG':  # 如果格式为PNG
+        size_mult = 1
+        while attempt < MAX_ATTEMPTS:
+            logger.debug('压缩图片：PNG模式 第%d次尝试，缩放比率：%f' % (attempt, size_mult))
+            temp_io = BytesIO()
+            if size_mult < 1:
+                image = image.resize(
+                    (int(image.width * size_mult), int(image.height * size_mult)))
+            image.save(temp_io, format='PNG', optimize=False)
+            logger.debug('压缩图片：结果大小：%d，目标：%d' % (temp_io.tell(), size_limit))
+            if temp_io.tell() <= size_limit:
+                break
+            else:
+                size_mult = 0.8
+            attempt += 1
+        logger.debug('压缩图片：完成')
+        return temp_io
+    else:
+        raise ValueError(_("不支持的图片格式 '%s'" % format))
+
+
 class UserProfile(models.Model):
-    user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name='profile')
+    class Meta:
+        verbose_name = _('用户资料')
+        verbose_name_plural = _('用户资料')
+
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name='profile',
+                                verbose_name=_('所属用户'))
     nick = models.CharField(max_length=32, blank=True, null=True, verbose_name=_('昵称'))
     language = models.CharField(max_length=16, choices=AVAILABLE_LANGUAGES,
                                 default=DEFAULT_LANGUAGE_CODE, verbose_name=_('偏好语言'))
@@ -40,9 +85,12 @@ class UserProfile(models.Model):
 
     email_activated = models.BooleanField(verbose_name=_('邮箱已激活'), default=False)
 
-    last_validation_mail_sent = models.IntegerField(default=0)
-    email_validation_tokens = DictField()
-    used_emails = DictField()
+    last_validation_mail_sent = models.IntegerField(default=0,
+                                                    verbose_name=_('上次激活邮件发送时间'),
+                                                    help_text=_('时间戳（秒）'))
+    email_validation_tokens = DictField(
+        verbose_name=_('激活邮件验证Token'), blank=True)
+    used_emails = DictField(verbose_name=_('曾用邮箱'), blank=True)
 
     def delete(self, using=None, keep_parents=False):
         # 删除对应的头像文件
@@ -66,45 +114,6 @@ class UserProfile(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _compress_avatar(self, size_limit: int, format: str, image: Image.Image) -> BytesIO:
-        logger.debug('压缩图片：%s，格式： %s' % (image, format))
-        MAX_ATTEMPTS = 10
-        attempt = 1
-        if format == 'JPEG':
-            quality = 100
-            while attempt < MAX_ATTEMPTS:
-                if quality <= 0:
-                    raise Exception(_('压缩失败。'))
-                logger.debug('压缩图片：JPEG模式 第%d次尝试，质量：%d' % (attempt, quality))
-                temp_io = BytesIO()
-                image.save(temp_io, format='JPEG', quality=quality, optimize=False)
-                logger.debug('压缩图片：结果大小：%d，目标：%d' % (temp_io.tell(), size_limit))
-                if temp_io.tell() > size_limit:
-                    quality -= 5
-                else:
-                    break
-                attempt += 1
-            return temp_io
-        elif format == 'PNG':  # 如果格式为PNG
-            size_mult = 1
-            while attempt < MAX_ATTEMPTS:
-                logger.debug('压缩图片：PNG模式 第%d次尝试，缩放比率：%f' % (attempt, size_mult))
-                temp_io = BytesIO()
-                if size_mult < 1:
-                    image = image.resize(
-                        (int(image.width * size_mult), int(image.height * size_mult)))
-                image.save(temp_io, format='PNG', optimize=False)
-                logger.debug('压缩图片：结果大小：%d，目标：%d' % (temp_io.tell(), size_limit))
-                if temp_io.tell() <= size_limit:
-                    break
-                else:
-                    size_mult = 0.8
-                attempt += 1
-            logger.debug('压缩图片：完成')
-            return temp_io
-        else:
-            raise ValueError(_("不支持的图片格式 '%s'" % format))
-
     def crop_avatar(self, x: float, y: float, w: float, h: float, save=True):
         filename_without_ext = os.path.splitext(self.avatar.name)[0]
         # 确保头像文件已经打开
@@ -124,11 +133,14 @@ class UserProfile(models.Model):
         self.avatar.delete(save)
 
         # 保存前压缩以保证裁剪后保存的图片大小不超过限制
-        temp_io = self._compress_avatar(AVATAR_SIZE_LIMIT, AVATAR_FORMAT, cropped_image)
+        temp_io = _compress_avatar(AVATAR_SIZE_LIMIT, AVATAR_FORMAT, cropped_image)
 
         self.avatar.save(
             name=filename_without_ext.split('/')[-1] + '.' + AVATAR_FORMAT.lower(),
             content=File(temp_io), save=save)
+
+    def __str__(self):
+        return self.user.username
 
     @property
     def language_name(self):
