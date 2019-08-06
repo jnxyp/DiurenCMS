@@ -10,7 +10,7 @@ urlpatterns = [
     path('login/', views.DiurenLoginView.as_view(), name='login'),
     path('logout/', views.DiurenLogoutView.as_view(), name='logout'),
 
-    # 用户详细信息
+    # 资料页
     path('user/<int:pk>', views.DiurenUserDetailView.as_view(), name='info'),
     re_path(r'^$', views.DiurenUserSelfView.as_view(), name='self'),
 

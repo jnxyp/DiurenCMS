@@ -27,14 +27,14 @@ EMAIL_TOKEN_EXPIRE = 15 * 60
 # 验证邮件发送间隔（秒）
 EMAIL_VALIDATION_COOLDOWN = 1 * 60
 
-import logging
-
+APP_UPLOAD_ROOT = 'account/'
+USER_UPLOAD_PATH = APP_UPLOAD_ROOT + 'user/'
 
 class DiurenaccountConfig(AppConfig):
     name = 'DiurenAccount'
     verbose_name = VERBOSE_NAME
 
-
+import logging
 logger = logging.getLogger(DiurenaccountConfig.name)
 
 if __name__ == '__main__':

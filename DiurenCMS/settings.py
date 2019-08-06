@@ -71,6 +71,8 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'DiurenUtility.context_processors.inject_settings',
                 'DiurenUtility.context_processors.inject_app_configs',
+                'DiurenAccount.context_processors.inject_profile',
+                'DiurenCloud.context_processors.inject_cloud_user'
             ],
             'debug': DEBUG,
             'string_if_invalid': '⚠无效变量⚠' if DEBUG else '',
