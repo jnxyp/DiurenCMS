@@ -16,7 +16,7 @@ from django.templatetags.static import static
 
 from DiurenAccount.apps import AVATAR_FORMAT, AVATAR_COLOR_MODE, \
     AVATAR_SIZE_LIMIT, logger, AVATAR_WIDTH_LIMIT, AVATAR_HEIGHT_LIMIT, EMAIL_TOKEN_EXPIRE, \
-    TOKEN_LENGTH
+    TOKEN_LENGTH, APP_UPLOAD_ROOT, USER_UPLOAD_PATH
 from DiurenAccount.fields import FileSizeRestrictedImageField, DictField
 from DiurenUtility.utility import send_mail, gen_random_char_string
 
@@ -29,6 +29,10 @@ def get_avatar_upload_filename(instance, filename):
 
 
 class UserProfile(models.Model):
+    class Meta:
+        verbose_name = _('用户资料')
+        verbose_name_plural = _('用户资料')
+
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name='profile')
     nick = models.CharField(max_length=32, blank=True, null=True, verbose_name=_('昵称'))
     language = models.CharField(max_length=16, choices=AVAILABLE_LANGUAGES,
@@ -143,11 +147,11 @@ class UserProfile(models.Model):
     def name(self):
         return self.nick if self.nick else self.user.username
 
-    @property
+    @property  # (Media Root/)account/user/<username>
     def home_path(self):
-        return 'user_uploads/' + str(self.user.id) + '/'
+        return USER_UPLOAD_PATH + str(self.user.username) + '/'
 
-    @property
+    @property  # (Media Root/)account/user/<username>/avatar
     def avatar_path(self):
         return self.home_path + 'avatar/'
 

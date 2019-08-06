@@ -35,8 +35,8 @@
                 <td>{{ user.date_joined|date|default:_('不可用') }}</td>
             </tr>
         </table>
-        {% if user.profile %}
-            {% with p=user.profile %}
+        {% if profile %}
+            {% with p=profile %}
                 <table class="table table-hover col-md-5 mr-2">
                     <tr>
                         <th>{% trans '个人设置' %}</th>
