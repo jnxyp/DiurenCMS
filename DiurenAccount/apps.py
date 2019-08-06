@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.apps import AppConfig
 from django.utils.translation import gettext, gettext_lazy as _
 
-VERBOSE_NAME = _('身份认证')
+VERBOSE_NAME = _('用户账户')
 
 # 头像上传设置
 # 注意，前端长宽比限制代码请直接更改 templates/account/avatar_input_and_edit_widget.html <script

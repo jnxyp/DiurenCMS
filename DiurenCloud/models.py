@@ -14,8 +14,8 @@ from DiurenCloud.validators import validate_object_name_special_characters
 
 class CloudUser(models.Model):
     class Meta:
-        verbose_name = _('云用户档案')
-        verbose_name_plural = _('云用户档案')
+        verbose_name = _('云用户')
+        verbose_name_plural = _('云用户')
 
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name='cloud_user')
 
