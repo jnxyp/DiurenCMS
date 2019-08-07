@@ -6,6 +6,8 @@ from PIL import Image
 from django.core.files.storage import default_storage, Storage
 
 from django.db import models
+from django.db.models.fields.files import FieldFile
+from django.utils.functional import cached_property
 from django.utils.translation import gettext, gettext_lazy as _
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -68,9 +70,11 @@ def _compress_image(size_limit: int, format: str, image: Image.Image) -> BytesIO
 
 
 def _resize_image(max_width: int, max_height: int, image: Image.Image) -> Image.Image:
+    logger.debug('缩放图片：%s，目标大小： %d x %d' % (image, max_width, max_height))
     if image.width > max_width or image.height > max_height:
         resize_ratio = min(max_width / image.width, max_height / image.height)
         return image.resize((int(image.width * resize_ratio), int(image.height * resize_ratio)))
+    logger.debug('缩放图片：完成')
     return image
 
 
@@ -104,7 +108,7 @@ class UserProfile(models.Model):
         return super().delete(using, keep_parents)
 
     def save(self, force_insert=False, force_update=False, using=None,
-             update_fields=None):
+             update_fields=None, image=None):
         # 如果头像为空，删除现有的头像文件（如果有的话）
         if not self.avatar:
             try:
@@ -115,23 +119,34 @@ class UserProfile(models.Model):
                 old_avatar = profile.avatar
                 if old_avatar:
                     old_avatar.delete(False)
-        instance = super().save(force_insert, force_update, using, update_fields)
         # 在上传后对图片进行压缩、缩放
         if self.avatar:
+            if not image:
+                # 从临时变量中读取图片
+                image = getattr(self, '_image', None)
+                del self._image
+
             filename_without_ext = os.path.splitext(self.avatar.name)[0]
-            self._normalize_avatar()
-            temp_io = self._normalize_avatar()
+            temp_io = self._normalize_avatar(image=image)
             self.avatar.delete(save=False)
             self.avatar.save(
                 name=filename_without_ext.split('/')[-1] + '.' + AVATAR_FORMAT.lower(),
                 content=File(temp_io), save=False)
+        instance = super().save(force_insert, force_update, using, update_fields)
         return instance
 
-    def _normalize_avatar(self, image=None):
+    @property
+    def avatar_image(self) -> Image.Image:
+        logger.debug('手动打开头像文件：开始')
+        # 此处，脱了裤子放屁是因为 avatar.open() 在用远程存储的时候不知道为啥打不开文件
+        storage = self.avatar.storage  # type:Storage
+        img = Image.open(storage.open(self.avatar.name))
+        logger.debug('手动打开头像文件：读取完成')
+        return img
+
+    def _normalize_avatar(self, image: Image.Image = None):
         if not image:
-            # 此处，脱了裤子放屁是因为 avatar.open() 在用远程存储的时候不知道为啥打不开文件
-            storage = self.avatar.storage  # type:Storage
-            image = Image.open(storage.open(self.avatar.name))
+            image = self.avatar_image
         # 转换颜色模式
         image = image.convert(AVATAR_COLOR_MODE)
         # 如果裁剪后图像尺寸超标，对整张图片进行resize
@@ -141,21 +156,20 @@ class UserProfile(models.Model):
 
         return temp_io
 
-    def crop_avatar(self, x: float, y: float, w: float, h: float):
+    def crop_avatar(self, x: float, y: float, w: float, h: float, commit=True):
         filename_without_ext = os.path.splitext(self.avatar.name)[0]
-        # 此处，脱了裤子放屁是因为 avatar.open() 在用远程存储的时候不知道为啥打不开文件
-        storage = self.avatar.storage  # type:Storage
-        image = Image.open(storage.open(self.avatar.name))
+        image = self.avatar_image
+        logger.debug('裁剪图片：%s，参数： %s' % (image, (x, y, w, h)))
         # 转换颜色模式
         # image = image.convert(AVATAR_COLOR_MODE)
         # 剪裁图片
-        temp_io = BytesIO()
         cropped_image = image.crop((x, y, w + x, h + y))  # type:Image.Image
-        cropped_image.save(temp_io, format=AVATAR_FORMAT)
-        self.avatar.delete(save=True)
-        self.avatar.save(
-            name=filename_without_ext.split('/')[-1] + '.' + AVATAR_FORMAT.lower(),
-            content=File(temp_io), save=True)
+        if commit:
+            self.save(image=cropped_image)
+        else:
+            # 存入临时属性 ._image
+            self._image = cropped_image
+        logger.debug('裁剪图片：完成')
 
     def __str__(self):
         return self.user.username

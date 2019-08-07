@@ -33,6 +33,7 @@ class UserAvatarChangeForm(forms.ModelForm):
         avatar_widget = avatar_field.widget  # type:forms.ClearableFileInput
         avatar_widget.template_name = 'account/avatar_input_and_edit_widget.html'
         avatar_widget.attrs['help_text'] = avatar_field.help_text
+
     def clean(self):
         cleaned_data = super().clean()
         avatar = self.cleaned_data.get('avatar')
@@ -60,16 +61,15 @@ class UserAvatarChangeForm(forms.ModelForm):
 
     def save(self, commit=True):
         avatar = self.cleaned_data.get('avatar')
-        instance = super().save(commit)
         # 如果没有上传新的头像，根据表单数据裁剪现有头像
-        if avatar and 'avatar' not in self.changed_data:
+        if avatar is not None and 'avatar' not in self.changed_data:
             x = self.cleaned_data.get('crop_x')
             y = self.cleaned_data.get('crop_y')
             w = self.cleaned_data.get('crop_width')
             h = self.cleaned_data.get('crop_height')
 
-            instance.crop_avatar(x, y, w, h)
-
+            self.instance.crop_avatar(x, y, w, h, commit=False)
+        instance = super().save(commit)
         return instance
 
 
