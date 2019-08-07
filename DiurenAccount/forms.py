@@ -32,7 +32,7 @@ class UserAvatarChangeForm(forms.ModelForm):
         avatar_field = self.fields['avatar']  # type:forms.Field
         avatar_widget = avatar_field.widget  # type:forms.ClearableFileInput
         avatar_widget.template_name = 'account/avatar_input_and_edit_widget.html'
-
+        avatar_widget.attrs['help_text'] = avatar_field.help_text
     def clean(self):
         cleaned_data = super().clean()
         avatar = self.cleaned_data.get('avatar')
@@ -68,7 +68,7 @@ class UserAvatarChangeForm(forms.ModelForm):
             w = self.cleaned_data.get('crop_width')
             h = self.cleaned_data.get('crop_height')
 
-            instance.crop_avatar(x, y, w, h, True)
+            instance.crop_avatar(x, y, w, h)
 
         return instance
 

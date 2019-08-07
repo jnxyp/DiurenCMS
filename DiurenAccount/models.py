@@ -3,9 +3,9 @@ import time
 from io import BytesIO
 
 from PIL import Image
+from django.core.files.storage import default_storage, Storage
 
 from django.db import models
-from django.forms import forms
 from django.utils.translation import gettext, gettext_lazy as _
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -16,7 +16,7 @@ from django.templatetags.static import static
 
 from DiurenAccount.apps import AVATAR_FORMAT, AVATAR_COLOR_MODE, \
     AVATAR_SIZE_LIMIT, logger, AVATAR_WIDTH_LIMIT, AVATAR_HEIGHT_LIMIT, EMAIL_TOKEN_EXPIRE, \
-    TOKEN_LENGTH, APP_UPLOAD_ROOT, USER_UPLOAD_PATH
+    TOKEN_LENGTH, USER_UPLOAD_PATH
 from DiurenAccount.fields import FileSizeRestrictedImageField, DictField
 from DiurenUtility.utility import send_mail, gen_random_char_string
 
@@ -28,10 +28,11 @@ def get_avatar_upload_filename(instance, filename):
     return instance.avatar_path + filename
 
 
-def _compress_avatar(size_limit: int, format: str, image: Image.Image) -> BytesIO:
+def _compress_image(size_limit: int, format: str, image: Image.Image) -> BytesIO:
     logger.debug('压缩图片：%s，格式： %s' % (image, format))
     MAX_ATTEMPTS = 10
     attempt = 1
+    temp_io = BytesIO()
     if format == 'JPEG':
         quality = 100
         while attempt < MAX_ATTEMPTS:
@@ -47,10 +48,10 @@ def _compress_avatar(size_limit: int, format: str, image: Image.Image) -> BytesI
                 break
             attempt += 1
         return temp_io
-    elif format == 'PNG':  # 如果格式为PNG
+    else:  # 如果格式为其它
         size_mult = 1
         while attempt < MAX_ATTEMPTS:
-            logger.debug('压缩图片：PNG模式 第%d次尝试，缩放比率：%f' % (attempt, size_mult))
+            logger.debug('压缩图片：缩放模式 第%d次尝试，缩放比率：%f' % (attempt, size_mult ** (attempt - 1)))
             temp_io = BytesIO()
             if size_mult < 1:
                 image = image.resize(
@@ -64,8 +65,13 @@ def _compress_avatar(size_limit: int, format: str, image: Image.Image) -> BytesI
             attempt += 1
         logger.debug('压缩图片：完成')
         return temp_io
-    else:
-        raise ValueError(_("不支持的图片格式 '%s'" % format))
+
+
+def _resize_image(max_width: int, max_height: int, image: Image.Image) -> Image.Image:
+    if image.width > max_width or image.height > max_height:
+        resize_ratio = min(max_width / image.width, max_height / image.height)
+        return image.resize((int(image.width * resize_ratio), int(image.height * resize_ratio)))
+    return image
 
 
 class UserProfile(models.Model):
@@ -109,35 +115,47 @@ class UserProfile(models.Model):
                 old_avatar = profile.avatar
                 if old_avatar:
                     old_avatar.delete(False)
-        return super().save(force_insert, force_update, using, update_fields)
+        instance = super().save(force_insert, force_update, using, update_fields)
+        # 在上传后对图片进行压缩、缩放
+        if self.avatar:
+            filename_without_ext = os.path.splitext(self.avatar.name)[0]
+            self._normalize_avatar()
+            temp_io = self._normalize_avatar()
+            self.avatar.delete(save=False)
+            self.avatar.save(
+                name=filename_without_ext.split('/')[-1] + '.' + AVATAR_FORMAT.lower(),
+                content=File(temp_io), save=False)
+        return instance
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def crop_avatar(self, x: float, y: float, w: float, h: float, save=True):
-        filename_without_ext = os.path.splitext(self.avatar.name)[0]
-        # 确保头像文件已经打开
-        self.avatar.open()
-
-        image = Image.open(self.avatar)
+    def _normalize_avatar(self, image=None):
+        if not image:
+            # 此处，脱了裤子放屁是因为 avatar.open() 在用远程存储的时候不知道为啥打不开文件
+            storage = self.avatar.storage  # type:Storage
+            image = Image.open(storage.open(self.avatar.name))
+        # 转换颜色模式
         image = image.convert(AVATAR_COLOR_MODE)
-        cropped_image = image.crop((x, y, w + x, h + y))  # type:Image.Image
-
         # 如果裁剪后图像尺寸超标，对整张图片进行resize
-        if w > AVATAR_WIDTH_LIMIT or h > AVATAR_HEIGHT_LIMIT:
-            resize_ratio = min(AVATAR_WIDTH_LIMIT / w, AVATAR_HEIGHT_LIMIT / h)
-            cropped_image = cropped_image.resize((int(w * resize_ratio), int(h * resize_ratio)))
-
-        # 删除旧头像
-        self.avatar.close()
-        self.avatar.delete(save)
-
+        image = _resize_image(AVATAR_WIDTH_LIMIT, AVATAR_HEIGHT_LIMIT, image)
         # 保存前压缩以保证裁剪后保存的图片大小不超过限制
-        temp_io = _compress_avatar(AVATAR_SIZE_LIMIT, AVATAR_FORMAT, cropped_image)
+        temp_io = _compress_image(AVATAR_SIZE_LIMIT, AVATAR_FORMAT, image)
 
+        return temp_io
+
+    def crop_avatar(self, x: float, y: float, w: float, h: float):
+        filename_without_ext = os.path.splitext(self.avatar.name)[0]
+        # 此处，脱了裤子放屁是因为 avatar.open() 在用远程存储的时候不知道为啥打不开文件
+        storage = self.avatar.storage  # type:Storage
+        image = Image.open(storage.open(self.avatar.name))
+        # 转换颜色模式
+        # image = image.convert(AVATAR_COLOR_MODE)
+        # 剪裁图片
+        temp_io = BytesIO()
+        cropped_image = image.crop((x, y, w + x, h + y))  # type:Image.Image
+        cropped_image.save(temp_io, format=AVATAR_FORMAT)
+        self.avatar.delete(save=True)
         self.avatar.save(
             name=filename_without_ext.split('/')[-1] + '.' + AVATAR_FORMAT.lower(),
-            content=File(temp_io), save=save)
+            content=File(temp_io), save=True)
 
     def __str__(self):
         return self.user.username

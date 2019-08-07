@@ -21,9 +21,9 @@ from django.conf import settings
 from oss2.api import _normalize_endpoint
 from oss2.models import PartInfo
 
-
 import logging
-logger = logging.getLogger(__name__)
+
+from DiurenUtility.apps import logger
 
 
 class AliyunOperationError(Exception):
@@ -40,6 +40,7 @@ class AliyunBaseStorage(Storage):
     """
 
     location = ""
+    base_url = ''
 
     def __init__(self):
         self.access_key_id = self._get_config('ACCESS_KEY_ID')
@@ -92,7 +93,7 @@ class AliyunBaseStorage(Storage):
         base_path = force_text(self.location)
         base_path = base_path.rstrip('/')
 
-        final_path = urljoin(base_path.rstrip('/') + "/", name)
+        final_path = urljoin(base_path + "/", name)
 
         base_path_len = len(base_path)
         if (not final_path.startswith(base_path) or
@@ -106,28 +107,31 @@ class AliyunBaseStorage(Storage):
         return name
 
     def _open(self, name, mode='rb'):
-        return AliyunFile(name, self, mode)
+        name = self._get_target_name(name)
+        logger.debug('OSS存储后端：打开文件 {name}，模式 {mode}'.format(name=name, mode=mode))
+        file = AliyunFile(name, self, mode)
+        return file
 
     def _save(self, name, content: File):
         # 为保证django行为的一致性，保存文件时，应该返回相对于`media path`的相对路径。
 
         target_name = self._get_target_name(name)
 
-        logger.debug('开始保存文件%s' % target_name)
+        logger.debug('OSS存储后端：保存文件 %s' % target_name)
 
         content.open()
 
         # 默认分片大小 1MB
         DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024
 
-        logger.debug('读取完成，文件大小%d' % content.size)
+        logger.debug('OSS存储后端：读取完成，文件大小 %d' % content.size)
         if not content.multiple_chunks(chunk_size=DEFAULT_CHUNK_SIZE):
-            logger.debug('不分片，开始上传')
+            logger.debug('OSS存储后端：不分片，开始上传')
             # 不分片
             content_str = content.file.read()
             self.bucket.put_object(target_name, content_str)
         else:
-            logger.debug('分片，开始上传')
+            logger.debug('OSS存储后端：分片，开始上传')
             # 改用分片上传方式
             upload_id = self.bucket.init_multipart_upload(target_name).upload_id
             parts = []
@@ -139,10 +143,10 @@ class AliyunBaseStorage(Storage):
                 parts.append(
                     PartInfo(part_id, result.etag))
                 part_id += 1
-                logger.debug('上传分片 #%d' % part_id)
+                logger.debug('OSS存储后端：上传分片 #%d' % part_id)
             result = self.bucket.complete_multipart_upload(target_name, upload_id, parts)
 
-        logger.debug('上传完毕，关闭文件')
+        logger.debug('OSS存储后端：上传完毕，关闭文件')
         content.close()
         return self._clean_name(name)
 
@@ -162,7 +166,8 @@ class AliyunBaseStorage(Storage):
         return datetime.datetime.fromtimestamp(file_info.last_modified)
 
     def listdir(self, name):
-        name = self._normalize_name(self._clean_name(name))
+        name = self._get_target_name(name)
+        logger.debug('OSS存储后端：列目录 {path}'.format(path=name))
         if name and name.endswith('/'):
             name = name[:-1]
 
@@ -178,7 +183,8 @@ class AliyunBaseStorage(Storage):
         return list(dirs), files
 
     def url(self, name):
-        name = self._normalize_name(self._clean_name(name))
+        name = self._get_target_name(name)
+        logger.debug('OSS存储后端：签署url {path}'.format(path=name))
         return self.bucket.sign_url('GET', name, 5 * 60)  # default access link expire time: 5min
 
     def read(self, name):
@@ -192,23 +198,31 @@ class AliyunBaseStorage(Storage):
 
 
 class AliyunMediaStorage(AliyunBaseStorage):
-    location = settings.MEDIA_URL
+    base_url = settings.MEDIA_URL
+    location = settings.MEDIA_ROOT
 
 
 class AliyunStaticStorage(AliyunBaseStorage):
-    location = settings.STATIC_URL
+    base_url = settings.STATIC_URL
+    location = settings.STATIC_ROOT
+
+    def url(self, name):
+        name = self._get_target_name(name)
+        logger.debug('OSS存储后端：静态url {path}'.format(path=name))
+        return self.bucket._make_url(self.bucket_name, name)
 
     def _save(self, name, content):
         path = super()._save(name, content)
         # 设置静态文件的访问权限为公共读
-        # self.bucket.put_object_acl(self._get_target_name(name), OBJECT_ACL_PUBLIC_READ)
+        self.bucket.put_object_acl(self._get_target_name(name), OBJECT_ACL_PUBLIC_READ)
         return path
 
 
 class AliyunFile(File):
     def __init__(self, name, storage, mode):
         self._storage = storage
-        self._name = name[len(self._storage.location):]
+        # self._name = name[len(self._storage.location):]
+        self._name = name
         self._mode = mode
         self.file = six.BytesIO()
         self._is_dirty = False

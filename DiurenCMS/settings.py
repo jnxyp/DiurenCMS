@@ -72,7 +72,7 @@ TEMPLATES = [
                 'DiurenUtility.context_processors.inject_settings',
                 'DiurenUtility.context_processors.inject_app_configs',
                 'DiurenAccount.context_processors.inject_profile',
-                'DiurenCloud.context_processors.inject_cloud_user'
+                'DiurenCloud.context_processors.inject_cloud_user',
             ],
             'debug': DEBUG,
             'string_if_invalid': '⚠无效变量⚠' if DEBUG else '',
@@ -175,8 +175,8 @@ else:
 
 # 阿里云OSS设置
 
-# DEFAULT_FILE_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunMediaStorage'
-# STATICFILES_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunStaticStorage'
+DEFAULT_FILE_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunMediaStorage'
+STATICFILES_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunStaticStorage'
 
 # ALIYUN_OSS_STORAGE = {
 #     'ACCESS_KEY_ID': 'XXXXXXXXXXXX',
