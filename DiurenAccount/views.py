@@ -1,17 +1,13 @@
 from django.conf import settings
-from django.contrib.auth import login, logout
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView, PasswordResetView, \
     PasswordResetConfirmView, PasswordResetDoneView
 from django.contrib.auth.mixins import LoginRequiredMixin
-# Create your views here.
-from django.forms import Form
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.views.generic import UpdateView, DetailView, TemplateView, FormView
-
-from DiurenAccount.forms import UserCreationFormWithEmail, EmailChangeForm, UserAvatarChangeForm
+from DiurenAccount.forms import UserCreationFormWithEmail, EmailChangeForm, AvatarUploadForm
 from DiurenAccount.models import UserProfile
 
 
@@ -117,20 +113,59 @@ class DiurenUserProfileChangeView(LoginRequiredMixin, UpdateView):
         return reverse('DiurenAccount:self')
 
 
-class DiurenUserAvatarChangeView(LoginRequiredMixin, UpdateView):
-    template_name = 'account/user_avatar_change.html'
-    form_class = UserAvatarChangeForm
+class DiurenAvatarModifyView(LoginRequiredMixin, FormView):
+    template_name = 'account/user_avatar_modify.html'
+    form_class = AvatarUploadForm
 
-    def get_object(self, queryset=None):
-        profile = UserProfile.objects.get(user=self.request.user)
-        return profile
+    def get_success_url(self):
+        return reverse('DiurenAccount:self')
 
-    def form_valid(self, form: UserAvatarChangeForm):
-        if 'avatar' in form.changed_data:
-            self.success_url = reverse('DiurenAccount:change-avatar')
+    def form_valid(self, form):
+        profile = self.request.user.profile  # type:UserProfile
+        if not form.cleaned_data['avatar']:
+            del profile.avatar
+            profile.save()
         else:
-            self.success_url = reverse('DiurenAccount:self')
+            profile.avatar = form.cleaned_data['avatar']
+            profile.save()
         return super().form_valid(form)
+
+
+# class DiurenAvatarUploadAPI(LoginRequiredAPIMixin, View):
+#
+#     def post(self, request: HttpRequest, *args, **kwargs):
+#         form = AvatarUploadForm(request.POST, request.FILES)
+#         if form.is_valid():
+#             profile = self.request.user.profile  # type:UserProfile
+#             if not form.cleaned_data['avatar']:
+#                 del profile.avatar
+#                 profile.save()
+#                 response = {
+#                     'message': '头像删除成功。',
+#                     'code': 'delete-avatar-success',
+#                 }
+#                 return JsonResponse(response, status=204)
+#             else:
+#                 profile.avatar = form.cleaned_data['avatar']
+#                 profile.save()
+#                 response = {
+#                     'message': '头像设置成功。',
+#                     'code': 'set-avatar-success',
+#                 }
+#                 return JsonResponse(response, status=201)
+#         else:
+#             response = {
+#                 'message': '头像数据无效。',
+#                 'code': 'invalid-avatar-data',
+#                 'errors': form.errors
+#             }
+#             return JsonResponse(response, status=400)
+#
+#
+# class DiurenAvatarCropAPI(LoginRequiredAPIMixin, View):
+#     def post(self, request: HttpRequest, *args, **kwargs):
+#         form = AvatarCropForm(request.POST)
+#         pass
 
 
 class DiurenPasswordChangeView(LoginRequiredMixin, PasswordChangeView):

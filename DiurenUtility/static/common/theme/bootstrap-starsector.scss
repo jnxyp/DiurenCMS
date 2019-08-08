@@ -52,12 +52,12 @@ $link-color: $purple;
 }
 
 // 将各种列表行首内边距设定为1.5em
-ul,dl,ol{
+ul, dl, ol {
   padding-inline-start: 1.5em;
 }
 
 // 为自定义文件选择按钮添加语言，去除白边
-.custom-file-label::after{
+.custom-file-label::after {
   content: '选择文件 / Select File';
   right: -1px;
   top: -1px;
@@ -69,6 +69,12 @@ ul,dl,ol{
 .rounded-circle-no-stretch {
   @extend .rounded-circle;
   object-fit: cover;
+}
+
+@for $r from 0 through 9 {
+  .rounded-#{$r} {
+    border-radius: ($r*1em/5);
+  }
 }
 
 td {

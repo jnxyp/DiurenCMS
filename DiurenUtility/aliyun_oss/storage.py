@@ -7,6 +7,8 @@
 # Bucket ACL should be set to PRIVATE
 
 import datetime
+import os
+
 import six
 import posixpath
 
@@ -23,7 +25,8 @@ from oss2.models import PartInfo
 
 import logging
 
-from DiurenUtility.apps import logger
+from DiurenUtility.apps import logger, CONTENT_DISPOSITION_INLINE_FILE_EXTS
+from DiurenUtility.utility import gen_random_char_string
 
 
 class AliyunOperationError(Exception):
@@ -32,6 +35,19 @@ class AliyunOperationError(Exception):
 
     def __str__(self):
         return repr(self.value)
+
+
+# 为返回文件添加 Content-Disposition 属性，以便用户能以原名下载文件
+def _make_content_headers(name):
+    params = dict()
+    file_name = name.split('/')[-1]
+    if name.split('.')[-1].lower() in CONTENT_DISPOSITION_INLINE_FILE_EXTS:
+        val = 'inline'
+    else:
+        val = 'attachment; filename="{name}"'.format(
+            name=file_name)
+    params['response-content-disposition'] = val
+    return params
 
 
 class AliyunBaseStorage(Storage):
@@ -52,6 +68,7 @@ class AliyunBaseStorage(Storage):
         self.auth = Auth(self.access_key_id, self.access_key_secret)
         self.service = Service(self.auth, self.end_point)
 
+        self.bucket = self._get_bucket(self.auth)
         self.bucket = self._get_bucket(self.auth)
 
     def _get_bucket(self, auth):
@@ -154,7 +171,16 @@ class AliyunBaseStorage(Storage):
         name = self._get_target_name(name)
         return self.bucket.head_object(name)
 
+    def get_file_acl(self, name):
+        name = self._get_target_name(name)
+        return self.bucket.get_object_acl(name)
+
+    def put_file_acl(self, name, acl):
+        name = self._get_target_name(name)
+        return self.bucket.put_object_acl(name, acl)
+
     def exists(self, name):
+        name = self._get_target_name(name)
         return self.bucket.object_exists(name)
 
     def size(self, name):
@@ -163,7 +189,18 @@ class AliyunBaseStorage(Storage):
 
     def get_modified_time(self, name):
         file_info = self.get_file_header(name)
-        return datetime.datetime.fromtimestamp(file_info.last_modified)
+        return self._datetime_from_timestamp(file_info.last_modified)
+
+    def _datetime_from_timestamp(self, ts):
+        """
+        If timezone support is enabled, make an aware datetime object in UTC;
+        otherwise make a naive one in the local timezone.
+        """
+        if settings.USE_TZ:
+            # Safe to use .replace() because UTC doesn't have DST
+            return datetime.datetime.utcfromtimestamp(ts).replace(tzinfo=datetime.timezone.utc)
+        else:
+            return datetime.datetime.fromtimestamp(ts)
 
     def listdir(self, name):
         name = self._get_target_name(name)
@@ -182,10 +219,16 @@ class AliyunBaseStorage(Storage):
 
         return list(dirs), files
 
-    def url(self, name):
+    def url(self, name, sign: bool = True):
         name = self._get_target_name(name)
-        logger.debug('OSS存储后端：签署url {path}'.format(path=name))
-        return self.bucket.sign_url('GET', name, 5 * 60)  # default access link expire time: 5min
+        logger.debug('OSS存储后端：生成url {path}，签名：{sign}'.format(path=name, sign=sign))
+        params = dict()
+        params.update(_make_content_headers(name))
+        if sign:
+            return self.bucket.sign_url('GET', name, 5 * 60,
+                                        params=params)  # default access link expire time: 5min
+        else:
+            return self.bucket._make_url(self.bucket_name, name)
 
     def read(self, name):
         pass
@@ -196,20 +239,37 @@ class AliyunBaseStorage(Storage):
         if result.status >= 400:
             raise AliyunOperationError(result.resp)
 
+    def copy(self, source, target):
+        source = self._get_target_name(source)
+        target = self._get_target_name(target)
+
+        result = self.bucket.copy_object(self.bucket.bucket_name, source, target)
+        if result.status >= 400:
+            raise AliyunOperationError(result.resp)
+
 
 class AliyunMediaStorage(AliyunBaseStorage):
     base_url = settings.MEDIA_URL
     location = settings.MEDIA_ROOT
+
+    def _save(self, name, content: File):
+        name = self.get_available_name(name)
+        return super()._save(name, content)
+
+    def get_available_name(self, name, max_length=None):
+        while self.exists(name):
+            name, ext = os.path.splitext(name)
+            name += '_' + gen_random_char_string(5) + ext
+            logger.info('OSS存储后端：文件名重复，生成文件名 {name}'.format(name=name))
+        return name
 
 
 class AliyunStaticStorage(AliyunBaseStorage):
     base_url = settings.STATIC_URL
     location = settings.STATIC_ROOT
 
-    def url(self, name):
-        name = self._get_target_name(name)
-        logger.debug('OSS存储后端：静态url {path}'.format(path=name))
-        return self.bucket._make_url(self.bucket_name, name)
+    def url(self, name, sign: bool = False):
+        return super().url(name, sign)
 
     def _save(self, name, content):
         path = super()._save(name, content)

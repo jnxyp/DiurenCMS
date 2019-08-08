@@ -21,7 +21,7 @@
                    href="{% url 'DiurenAccount:self' %}">
                     <img class="rounded-circle-no-stretch mr-2"
                          style="height: 2.3rem; width: 2.3rem"
-                         src="{{ user.profile.avatar_url }}"
+                         src="{{ user.profile.avatar_urls.SMALL }}"
                          alt={% trans '头像' %}>
                     <span>{{ request.user.profile.name }}</span>
                 </a>

@@ -174,18 +174,20 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 # 阿里云OSS设置
+USE_OSS = False
 
-DEFAULT_FILE_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunMediaStorage'
-STATICFILES_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunStaticStorage'
+if USE_OSS:
+    DEFAULT_FILE_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunMediaStorage'
+    STATICFILES_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunStaticStorage'
 
-# ALIYUN_OSS_STORAGE = {
-#     'ACCESS_KEY_ID': 'XXXXXXXXXXXX',
-#     'ACCESS_KEY_SECRET': 'XXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-#     'END_POINT': 'https://XXX.aliyuncs.com',
-#     'BUCKET_NAME': 'XXXXXXXX',
-#     'ALIYUN_OSS_CNAME': XXXXXXXXXX,
-# }
-from .credentials import ALIYUN_OSS_STORAGE
+    # ALIYUN_OSS_STORAGE = {
+    #     'ACCESS_KEY_ID': 'XXXXXXXXXXXX',
+    #     'ACCESS_KEY_SECRET': 'XXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+    #     'END_POINT': 'https://XXX.aliyuncs.com',
+    #     'BUCKET_NAME': 'XXXXXXXX',
+    #     'ALIYUN_OSS_CNAME': XXXXXXXXXX or None,
+    # }
+    from .credentials import ALIYUN_OSS_STORAGE
 
 # 日志输出设置
 LOGGING = {

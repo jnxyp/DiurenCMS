@@ -15,12 +15,31 @@ AVATAR_MIN_ASPECT_RATIO = 0.618
 AVATAR_FORMAT = 'PNG'
 AVATAR_COLOR_MODE = 'RGBA'
 
-AVATAR_SIZE_LIMIT = 1 * 1024 * 1024
-AVATAR_WIDTH_LIMIT = 512
-AVATAR_HEIGHT_LIMIT = 512
+AVATAR_SIZES = {
+    'ORIGINAL': {
+        'SIZE': 5 * 1024 * 1024,
+        'WIDTH': 2048,
+        'HEIGHT': 2048,
+    },
+    'LARGE': {
+        'SIZE': 0.5 * 1024 * 1024,
+        'WIDTH': 256,
+        'HEIGHT': 256,
+    },
+    'MIDDLE': {
+        'SIZE': 0.2 * 1024 * 1024,
+        'WIDTH': 128,
+        'HEIGHT': 128,
+    },
+    'SMALL': {
+        'SIZE': 0.075 * 1024 * 1024,
+        'WIDTH': 64,
+        'HEIGHT': 64,
+    },
+}
+AVATAR_ORIGINAL_SIZE_NAME = 'ORIGINAL'
 
 TOKEN_LENGTH = 32
-
 
 # 邮件验证Token过期时间（秒）
 EMAIL_TOKEN_EXPIRE = 15 * 60
@@ -30,12 +49,12 @@ EMAIL_VALIDATION_COOLDOWN = 1 * 60
 APP_UPLOAD_ROOT = 'account/'
 USER_UPLOAD_PATH = APP_UPLOAD_ROOT + 'user/'
 
+
 class DiurenaccountConfig(AppConfig):
     name = 'DiurenAccount'
     verbose_name = VERBOSE_NAME
 
-import logging
-logger = logging.getLogger(DiurenaccountConfig.name)
 
-if __name__ == '__main__':
-    logger.error('[ERROR]测试一波')
+import logging
+
+logger = logging.getLogger(DiurenaccountConfig.name)

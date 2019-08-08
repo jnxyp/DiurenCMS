@@ -9847,6 +9847,46 @@ ul, dl, ol {
   object-fit: cover;
 }
 
+.rounded-0 {
+  border-radius: 0em;
+}
+
+.rounded-1 {
+  border-radius: 0.2em;
+}
+
+.rounded-2 {
+  border-radius: 0.4em;
+}
+
+.rounded-3 {
+  border-radius: 0.6em;
+}
+
+.rounded-4 {
+  border-radius: 0.8em;
+}
+
+.rounded-5 {
+  border-radius: 1em;
+}
+
+.rounded-6 {
+  border-radius: 1.2em;
+}
+
+.rounded-7 {
+  border-radius: 1.4em;
+}
+
+.rounded-8 {
+  border-radius: 1.6em;
+}
+
+.rounded-9 {
+  border-radius: 1.8em;
+}
+
 td {
   word-break: break-word;
 }
