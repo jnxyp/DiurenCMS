@@ -1,0 +1,29 @@
+{% extends 'account/account_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title_prefix %}{% trans '修改头像' %}{% endblock %}
+
+{% block main %}
+    <div class="jumbotron">
+        <h1 class="display-4">{% trans '修改头像' %}</h1>
+        <div class="card border-primary">
+            <div class="card-body m-0">
+                <form method="post" enctype="multipart/form-data" id="id_avatar_upload">
+                    {{ form.media }}
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="d-block">当前头像：</label>
+                        <a target="_blank" href="{{ profile.avatar_urls.ORIGINAL }}">
+                            <img class="rounded-3" src="{{ profile.avatar_urls.LARGE }}"
+                                 alt="{% trans '头像' %}">
+                        </a>
+                    </div>
+                    {% include 'utility/bootstrap_form.html' with form=form %}
+                    <input role="button" type="submit" value="{% trans '提交' %}"
+                           class="btn btn-primary">
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}

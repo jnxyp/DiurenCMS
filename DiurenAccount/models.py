@@ -1,71 +1,26 @@
-import os
 import time
-from io import BytesIO
 
 from PIL import Image
-
+from django.core.files import File
+from django.core.files.storage import default_storage, Storage
 from django.db import models
-from django.forms import forms
+from django.utils.functional import cached_property
 from django.utils.translation import gettext, gettext_lazy as _
 from django.contrib.auth.models import User
 from django.conf import settings
-from django.core.files import File
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.templatetags.static import static
 
-from DiurenAccount.apps import AVATAR_FORMAT, AVATAR_COLOR_MODE, \
-    AVATAR_SIZE_LIMIT, logger, AVATAR_WIDTH_LIMIT, AVATAR_HEIGHT_LIMIT, EMAIL_TOKEN_EXPIRE, \
-    TOKEN_LENGTH, APP_UPLOAD_ROOT, USER_UPLOAD_PATH
-from DiurenAccount.fields import FileSizeRestrictedImageField, DictField
-from DiurenUtility.utility import send_mail, gen_random_char_string
+from DiurenAccount.apps import logger, EMAIL_TOKEN_EXPIRE, \
+    TOKEN_LENGTH, USER_UPLOAD_PATH, AVATAR_SIZES, AVATAR_FORMAT, AVATAR_COLOR_MODE, \
+    AVATAR_ORIGINAL_SIZE_NAME
+from DiurenAccount.fields import DictField
+from DiurenUtility.aliyun_oss.storage import AliyunBaseStorage
+from DiurenUtility.utility import send_mail, gen_random_char_string, dotdict, generate_thumbnails
 
 DEFAULT_LANGUAGE_CODE = settings.LANGUAGE_CODE
 AVAILABLE_LANGUAGES = settings.LANGUAGES
-
-
-def get_avatar_upload_filename(instance, filename):
-    return instance.avatar_path + filename
-
-
-def _compress_avatar(size_limit: int, format: str, image: Image.Image) -> BytesIO:
-    logger.debug('压缩图片：%s，格式： %s' % (image, format))
-    MAX_ATTEMPTS = 10
-    attempt = 1
-    if format == 'JPEG':
-        quality = 100
-        while attempt < MAX_ATTEMPTS:
-            if quality <= 0:
-                raise Exception(_('压缩失败。'))
-            logger.debug('压缩图片：JPEG模式 第%d次尝试，质量：%d' % (attempt, quality))
-            temp_io = BytesIO()
-            image.save(temp_io, format='JPEG', quality=quality, optimize=False)
-            logger.debug('压缩图片：结果大小：%d，目标：%d' % (temp_io.tell(), size_limit))
-            if temp_io.tell() > size_limit:
-                quality -= 5
-            else:
-                break
-            attempt += 1
-        return temp_io
-    elif format == 'PNG':  # 如果格式为PNG
-        size_mult = 1
-        while attempt < MAX_ATTEMPTS:
-            logger.debug('压缩图片：PNG模式 第%d次尝试，缩放比率：%f' % (attempt, size_mult))
-            temp_io = BytesIO()
-            if size_mult < 1:
-                image = image.resize(
-                    (int(image.width * size_mult), int(image.height * size_mult)))
-            image.save(temp_io, format='PNG', optimize=False)
-            logger.debug('压缩图片：结果大小：%d，目标：%d' % (temp_io.tell(), size_limit))
-            if temp_io.tell() <= size_limit:
-                break
-            else:
-                size_mult = 0.8
-            attempt += 1
-        logger.debug('压缩图片：完成')
-        return temp_io
-    else:
-        raise ValueError(_("不支持的图片格式 '%s'" % format))
 
 
 class UserProfile(models.Model):
@@ -73,74 +28,58 @@ class UserProfile(models.Model):
         verbose_name = _('用户资料')
         verbose_name_plural = _('用户资料')
 
+    # 字段定义
+
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name='profile',
                                 verbose_name=_('所属用户'))
     nick = models.CharField(max_length=32, blank=True, null=True, verbose_name=_('昵称'))
     language = models.CharField(max_length=16, choices=AVAILABLE_LANGUAGES,
                                 default=DEFAULT_LANGUAGE_CODE, verbose_name=_('偏好语言'))
 
-    avatar = FileSizeRestrictedImageField(verbose_name=_('头像'), blank=True, null=True,
-                                          upload_to=get_avatar_upload_filename, max_length=256,
-                                          max_upload_size=AVATAR_SIZE_LIMIT)
-
     email_activated = models.BooleanField(verbose_name=_('邮箱已激活'), default=False)
 
     last_validation_mail_sent = models.IntegerField(default=0,
                                                     verbose_name=_('上次激活邮件发送时间'),
                                                     help_text=_('时间戳（秒）'))
+    # {
+    #   '<token>':{
+    #     'email':<email>,
+    #     'expire':<expire>,
+    #   }
+    # }
     email_validation_tokens = DictField(
         verbose_name=_('激活邮件验证Token'), blank=True)
+    # {
+    #   '<used_email>':{
+    #     'activated':<email_activated>
+    #   }
+    # }
     used_emails = DictField(verbose_name=_('曾用邮箱'), blank=True)
+    # {
+    #   "<size_name>:'(Media Root/)account/user/<username>/avatar/<size_name>.<ext>',
+    # }
+    _avatar = DictField(verbose_name=_('头像'), blank=True)
 
-    def delete(self, using=None, keep_parents=False):
-        # 删除对应的头像文件
-        self.avatar.delete()
-        return super().delete(using, keep_parents)
-
-    def save(self, force_insert=False, force_update=False, using=None,
-             update_fields=None):
-        # 如果头像为空，删除现有的头像文件（如果有的话）
-        if not self.avatar:
-            try:
-                profile = self.__class__.objects.get(pk=self.id)
-            except UserProfile.DoesNotExist:
-                pass
-            else:
-                old_avatar = profile.avatar
-                if old_avatar:
-                    old_avatar.delete(False)
-        return super().save(force_insert, force_update, using, update_fields)
+    # 特殊方法
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def crop_avatar(self, x: float, y: float, w: float, h: float, save=True):
-        filename_without_ext = os.path.splitext(self.avatar.name)[0]
-        # 确保头像文件已经打开
-        self.avatar.open()
-
-        image = Image.open(self.avatar)
-        image = image.convert(AVATAR_COLOR_MODE)
-        cropped_image = image.crop((x, y, w + x, h + y))  # type:Image.Image
-
-        # 如果裁剪后图像尺寸超标，对整张图片进行resize
-        if w > AVATAR_WIDTH_LIMIT or h > AVATAR_HEIGHT_LIMIT:
-            resize_ratio = min(AVATAR_WIDTH_LIMIT / w, AVATAR_HEIGHT_LIMIT / h)
-            cropped_image = cropped_image.resize((int(w * resize_ratio), int(h * resize_ratio)))
-
-        # 删除旧头像
-        self.avatar.close()
-        self.avatar.delete(save)
-
-        # 保存前压缩以保证裁剪后保存的图片大小不超过限制
-        temp_io = _compress_avatar(AVATAR_SIZE_LIMIT, AVATAR_FORMAT, cropped_image)
-
-        self.avatar.save(
-            name=filename_without_ext.split('/')[-1] + '.' + AVATAR_FORMAT.lower(),
-            content=File(temp_io), save=save)
-
     def __str__(self):
         return self.user.username
+
+    def save(self, force_insert=False, force_update=False, using=None,
+             update_fields=None):
+        val = super().save(force_insert, force_update, using, update_fields)
+        self._clear_cache()
+        return val
+
+    def _clear_cache(self):
+        self.__dict__.pop('home_path', None)
+        self.__dict__.pop('avatar_path', None)
+        self.__dict__.pop('avatar_urls', None)
+
+    # 属性定义
 
     @property
     def language_name(self):
@@ -155,20 +94,76 @@ class UserProfile(models.Model):
     def name(self):
         return self.nick if self.nick else self.user.username
 
-    @property  # (Media Root/)account/user/<username>
+    @cached_property  # (Media Root/)account/user/<username>/
     def home_path(self):
         return USER_UPLOAD_PATH + str(self.user.username) + '/'
 
-    @property  # (Media Root/)account/user/<username>/avatar
+    # 头像相关方法
+
+    @cached_property  # (Media Root/)account/user/<username>/avatar/
     def avatar_path(self):
         return self.home_path + 'avatar/'
 
+    @cached_property
+    def avatar_urls(self):
+        logger.debug('头像urls：开始生成头像urls')
+        avatar_urls = dotdict()
+        storage = default_storage  # type:Storage
+        for size in AVATAR_SIZES.keys():
+            if size in self._avatar:
+                if getattr(settings, 'USE_OSS', False):
+                    oss_storage = storage  # type:AliyunBaseStorage
+                    url = oss_storage.url(self._avatar[size], sign=False)
+                else:
+                    url = storage.url(self._avatar[size])
+            else:
+                url = static('account/default.gif')
+            avatar_urls[size] = url
+        logger.debug('头像urls：完成√')
+        return avatar_urls
+
     @property
-    def avatar_url(self):
-        if self.avatar:
-            return self.avatar.url
-        else:
-            return static('account/default.gif')
+    def avatar(self):
+        if self._avatar:
+            name = self.avatar_path + self._avatar[AVATAR_ORIGINAL_SIZE_NAME]
+            storage = default_storage  # type:Storage
+            return storage.open(name)
+        return None
+
+    @avatar.setter
+    def avatar(self, avatar: File):
+        logger.debug('设定头像：开始设定头像')
+        if self._avatar:
+            logger.debug('设定头像：删除旧头像')
+            del self.avatar
+        storage = default_storage  # type:Storage
+        logger.debug('设定头像：打开传入头像文件 {file}'.format(file=avatar))
+        image = Image.open(avatar)
+        logger.debug('设定头像：生成不同尺寸头像')
+        thumbs = generate_thumbnails(image, sizes=AVATAR_SIZES, target_format=AVATAR_FORMAT,
+                                     target_mode=AVATAR_COLOR_MODE)
+        logger.debug('设定头像：生成完成，尺寸 {sizes}'.format(sizes=list(thumbs.keys())))
+        for size, io in thumbs.items():
+            path = storage.save(self.avatar_path + size + '.' + AVATAR_FORMAT, io)
+            # 如果启用了OSS，为了提高加载速度，将头像文件权限设置为公共读
+            if getattr(settings, 'USE_OSS', False):
+                oss_storage = storage  # type:AliyunBaseStorage
+                from oss2 import OBJECT_ACL_PUBLIC_READ
+                oss_storage.put_file_acl(path, OBJECT_ACL_PUBLIC_READ)
+            self._avatar[size] = path
+        logger.debug('设定头像：完成√')
+
+    @avatar.deleter
+    def avatar(self):
+        logger.debug('删除头像：开始删除头像')
+        storage = default_storage  # type:Storage
+        for name in self._avatar.values():
+            storage.delete(name)
+            logger.debug('删除头像：删除 {name}'.format(name=name))
+        self._avatar = dict()
+        logger.debug('删除头像：完成√')
+
+    # 邮件验证相关方法
 
     def email_token_valid(self, email, token) -> bool:
         if token in self.email_validation_tokens:

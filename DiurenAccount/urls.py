@@ -20,7 +20,11 @@ urlpatterns = [
     # 用户资料修改
     path('change-profile/', views.DiurenUserProfileChangeView.as_view(), name='change-profile'),
     path('change-email/', views.DiurenEmailChangeView.as_view(), name='change-email'),
-    path('change-avatar/', views.DiurenUserAvatarChangeView.as_view(), name='change-avatar'),
+    path('modify-avatar/', views.DiurenAvatarModifyView.as_view(), name='modify-avatar'),
+
+    # 头像修改API
+    # path('modify-avatar/upload', views.DiurenAvatarUploadAPI.as_view(), name='api-upload-avatar'),
+    # path('modify-avatar/crop', views.DiurenAvatarCropAPI.as_view(), name='api-crop-avatar'),
 
     # 邮箱修改
     path('change-email/', views.DiurenEmailChangeView.as_view(), name='change-email'),

@@ -3,5 +3,4 @@ def inject_profile(request):
     if u.is_authenticated:
         if hasattr(u, 'profile'):
             return {'profile': u.profile}
-        else:
-            return {'profile': False}
+    return {}

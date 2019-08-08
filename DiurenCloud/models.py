@@ -14,8 +14,8 @@ from DiurenCloud.validators import validate_object_name_special_characters
 
 class CloudUser(models.Model):
     class Meta:
-        verbose_name = _('云用户档案')
-        verbose_name_plural = _('云用户档案')
+        verbose_name = _('云用户')
+        verbose_name_plural = _('云用户')
 
     user = models.OneToOneField(to=User, on_delete=models.CASCADE, related_name='cloud_user')
 
@@ -73,6 +73,10 @@ class CloudObjectBase(models.Model):
     def _path(self):
         raise NotImplementedError()
 
+    @property
+    def full_path(self):
+        return USER_UPLOAD_PATH + self.path
+
     @classmethod
     def get_object_by_path(cls, path: str):
         cls.objects.get(path=path)
@@ -103,6 +107,14 @@ class CloudDirectory(CloudObjectBase):
             p = self.owner.object_relative_path
         return p + self.name + '/'
 
+    def delete(self, using=None, keep_parents=False):
+        for file in self.files:
+            file.delete(using, keep_parents)
+        for dir in self.directories:
+            dir.delete(using, keep_parents)
+
+        return super().delete(using, keep_parents)
+
 
 class CloudFile(CloudObjectBase):
     class Meta:
@@ -124,4 +136,9 @@ class CloudFile(CloudObjectBase):
     @property
     def exists(self):
         storage = default_storage  # type:Storage
-        return storage.exists(MEDIA_ROOT + USER_UPLOAD_PATH + self.path)
+        return storage.exists(USER_UPLOAD_PATH + self.path)
+
+    def delete(self, using=None, keep_parents=False):
+        storage = default_storage  # type:Storage
+        storage.delete(self.full_path)
+        return super().delete(using, keep_parents)
