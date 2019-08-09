@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 import logging
 import os
+from os import environ
 from django.utils.translation import gettext, gettext_lazy as _
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -21,7 +22,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # SECRET_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-from .credentials import SECRET_KEY
+if environ.get('USE_ENVIRON', False):
+    SECRET_KEY = environ.get('SECRET_KEY')
+else:
+    from .secrets import SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -161,11 +165,13 @@ VERSION = '1.0.0'
 
 EMAIL_USE_SSL = True
 if not DEBUG:
-    # EMAIL_HOST = 'XXXXXXXXX'
-    # EMAIL_PORT = 'XXX'
-    # EMAIL_HOST_USER = 'XXXXXXXXXXXXXXX'
-    # EMAIL_HOST_PASSWORD = 'XXXXXXXXXXXXXXXXX'
-    from .credentials import EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_PASSWORD, EMAIL_HOST_USER
+    EMAIL_HOST = 'smtp.exmail.qq.com'
+    EMAIL_PORT = '465'
+    EMAIL_HOST_USER = 'system@fossic.org'
+    if environ.get('USE_ENVIRON', False):
+        SECRET_KEY = environ.get('EMAIL_HOST_PASSWORD')
+    else:
+        from .secrets import EMAIL_HOST_PASSWORD
 
 DEFAULT_FROM_EMAIL = 'system@fossic.org'
 
@@ -181,14 +187,16 @@ if USE_OSS:
     DEFAULT_FILE_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunMediaStorage'
     STATICFILES_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunStaticStorage'
 
-    # ALIYUN_OSS_STORAGE = {
-    #     'ACCESS_KEY_ID': 'XXXXXXXXXXXX',
-    #     'ACCESS_KEY_SECRET': 'XXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-    #     'END_POINT': 'https://XXX.aliyuncs.com',
-    #     'BUCKET_NAME': 'XXXXXXXX',
-    #     'ALIYUN_OSS_CNAME': XXXXXXXXXX or None,
-    # }
-    from .credentials import ALIYUN_OSS_STORAGE
+    if environ.get('USE_ENVIRON', False):
+        ALIYUN_OSS_STORAGE = {
+            'ACCESS_KEY_ID': 'LTAIogwklbto6XKY',
+            'ACCESS_KEY_SECRET': environ.get('ACCESS_KEY_SECRET'),
+            'END_POINT': 'https://oss-cn-hongkong.aliyuncs.com',
+            'BUCKET_NAME': 'durian-cms',
+            'ALIYUN_OSS_CNAME': None,
+        }
+    else:
+        from .secrets import ALIYUN_OSS_STORAGE
 
 # 日志输出设置
 LOGGING = {
