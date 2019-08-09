@@ -46,7 +46,7 @@ class CloudObject(models.Model):
     last_modified = models.DateTimeField(auto_now=True)
 
     owner = models.ForeignKey(to=CloudUser, on_delete=models.CASCADE)
-    parent = models.ForeignKey(to='self', on_delete=models.CASCADE,
+    parent = models.ForeignKey(to='CloudDirectory', on_delete=models.CASCADE,
                                null=True, blank=True)
 
     def __eq__(self, other):
@@ -67,6 +67,12 @@ class CloudObject(models.Model):
              update_fields=None):
         instance = super().save(force_insert, force_update, using, update_fields)
         return instance
+
+    # 因为覆盖 __eq__ 方法会导致 __hash__ 无法继承，在这再定义一次。
+    def __hash__(self):
+        if self.pk is None:
+            raise TypeError("Model instances without primary key value are unhashable")
+        return hash(self.pk)
 
     @property
     # (Media Root/)cloud/user/<username>/<path>
