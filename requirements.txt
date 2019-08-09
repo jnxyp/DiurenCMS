@@ -1,13 +1,13 @@
 aliyun-python-sdk-core==2.13.5
 aliyun-python-sdk-core-v3==2.13.3
-aliyun-python-sdk-kms==2.7.0
+aliyun-python-sdk-kms==2.7.1
 certifi==2019.6.16
 chardet==3.0.4
 crcmod==1.7
 Django==2.2.4
 idna==2.8
 jmespath==0.9.4
-oss2==2.6.1
+oss2==2.7.0
 Pillow==6.1.0
 pycryptodome==3.8.2
 pytz==2019.1
