@@ -62,9 +62,6 @@ class UserProfile(models.Model):
 
     # 特殊方法
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def __str__(self):
         return self.user.username
 

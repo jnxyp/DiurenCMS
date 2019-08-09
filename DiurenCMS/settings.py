@@ -227,6 +227,11 @@ LOGGING = {
             'level': 'DEBUG',
             'filters': ['require_debug_true']
         },
+        'DiurenCloud': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'filters': ['require_debug_true']
+        },
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
