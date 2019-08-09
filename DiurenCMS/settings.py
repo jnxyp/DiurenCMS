@@ -160,11 +160,12 @@ VERSION = '1.0.0'
 # 邮件发送设置
 
 EMAIL_USE_SSL = True
-# EMAIL_HOST = 'XXXXXXXXX'
-# EMAIL_PORT = 'XXX'
-# EMAIL_HOST_USER = 'XXXXXXXXXXXXXXX'
-# EMAIL_HOST_PASSWORD = 'XXXXXXXXXXXXXXXXX'
-from .credentials import EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_PASSWORD, EMAIL_HOST_USER
+if not DEBUG:
+    # EMAIL_HOST = 'XXXXXXXXX'
+    # EMAIL_PORT = 'XXX'
+    # EMAIL_HOST_USER = 'XXXXXXXXXXXXXXX'
+    # EMAIL_HOST_PASSWORD = 'XXXXXXXXXXXXXXXXX'
+    from .credentials import EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_PASSWORD, EMAIL_HOST_USER
 
 DEFAULT_FROM_EMAIL = 'system@fossic.org'
 
@@ -174,7 +175,7 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 # 阿里云OSS设置
-USE_OSS = True
+USE_OSS = False
 
 if USE_OSS:
     DEFAULT_FILE_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunMediaStorage'
