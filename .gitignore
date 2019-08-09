@@ -1,5 +1,5 @@
 # 凭据文件
-credentials.py
+secrets.py
 
 # 本地用户上传文件
 media/
