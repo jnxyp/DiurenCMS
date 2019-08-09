@@ -174,7 +174,7 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 # 阿里云OSS设置
-USE_OSS = False
+USE_OSS = True
 
 if USE_OSS:
     DEFAULT_FILE_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunMediaStorage'
