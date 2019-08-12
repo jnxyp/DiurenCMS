@@ -24,6 +24,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECRET_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 if environ.get('USE_ENVIRON', False):
     SECRET_KEY = environ.get('SECRET_KEY')
+    print(SECRET_KEY)
 else:
     from .secrets import SECRET_KEY
 
@@ -188,15 +189,16 @@ if USE_OSS:
     STATICFILES_STORAGE = 'DiurenUtility.aliyun_oss.storage.AliyunStaticStorage'
 
     if environ.get('USE_ENVIRON', False):
-        ALIYUN_OSS_STORAGE = {
-            'ACCESS_KEY_ID': 'LTAIogwklbto6XKY',
-            'ACCESS_KEY_SECRET': environ.get('ACCESS_KEY_SECRET'),
-            'END_POINT': 'https://oss-cn-hongkong.aliyuncs.com',
-            'BUCKET_NAME': 'durian-cms',
-            'ALIYUN_OSS_CNAME': None,
-        }
+        ACCESS_KEY_SECRET = environ.get('ACCESS_KEY_SECRET')
     else:
-        from .secrets import ALIYUN_OSS_STORAGE
+        from .secrets import ACCESS_KEY_SECRET
+    ALIYUN_OSS_STORAGE = {
+        'ACCESS_KEY_ID': 'LTAIogwklbto6XKY',
+        'ACCESS_KEY_SECRET': environ.get('ACCESS_KEY_SECRET'),
+        'END_POINT': 'https://oss-cn-hongkong.aliyuncs.com',
+        'BUCKET_NAME': 'durian-cms',
+        'ALIYUN_OSS_CNAME': None,
+    }
 
 # 日志输出设置
 LOGGING = {
