@@ -24,7 +24,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # SECRET_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 if environ.get('USE_ENVIRON', False):
     SECRET_KEY = environ.get('SECRET_KEY')
-    print(SECRET_KEY)
 else:
     from .secrets import SECRET_KEY
 
