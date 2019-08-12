@@ -6,6 +6,8 @@ VERBOSE_NAME = _('文件管理')
 APP_UPLOAD_ROOT = 'cloud/'
 USER_UPLOAD_PATH = APP_UPLOAD_ROOT + 'user/'
 
+FILE_BUFFER_MAX_SIZE = 15 * 1024 * 1024
+
 
 class DiurencloudConfig(AppConfig):
     name = 'DiurenCloud'

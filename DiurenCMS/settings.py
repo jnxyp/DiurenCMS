@@ -8,6 +8,10 @@ https://docs.djangoproject.com/en/2.2/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.2/ref/settings/
+
+注意：系统运行需要以下三个设置变量
+SECRET_KEY, EMAIL_HOST_PASSWORD (若使用邮箱发信), ACCESS_KEY_SECRET (若使用阿里云存储)
+如果希望通过环境变量的方式传入，请添加环境变量 USE_ENVIRON = True
 """
 import logging
 import os

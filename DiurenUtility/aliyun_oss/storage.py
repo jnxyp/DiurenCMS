@@ -25,7 +25,7 @@ from oss2.models import PartInfo
 
 import logging
 
-from DiurenUtility.apps import logger, CONTENT_DISPOSITION_INLINE_FILE_EXTS
+from DiurenUtility.apps import logger, CONTENT_DISPOSITION_INLINE_FILE_EXTS, OSS_SIGNED_URL_EXPIRE
 from DiurenUtility.utility import gen_random_char_string
 
 
@@ -37,7 +37,7 @@ class AliyunOperationError(Exception):
         return repr(self.value)
 
 
-# 为返回文件添加 Content-Disposition 属性，以便用户能以原名下载文件
+# 为返回文件添加 Content-Disposition 属性，以便用户能以原名下载或直接查看文件
 def _make_content_headers(name):
     params = dict()
     file_name = name.split('/')[-1]
@@ -219,13 +219,21 @@ class AliyunBaseStorage(Storage):
 
         return list(dirs), files
 
-    def url(self, name, sign: bool = True):
+    '''
+    根据文件key生成对应的访问url
+    :param name: 要生成链接的文件key
+    :param virtual_name: 可选，指定下载文件名称，仅在签名且文件扩展名不属于直接显示类别（如图片）时生效
+    :param sign: 可选，是否需要对url进行签名。对于访问ACL为私有的文件，必须签名访问
+    '''
+    def url(self, name, virtual_name: str = None, sign: bool = True):
         name = self._get_target_name(name)
         logger.debug('OSS存储后端：生成url {path}，签名：{sign}'.format(path=name, sign=sign))
         params = dict()
-        params.update(_make_content_headers(name))
+        if not virtual_name:
+            virtual_name = name
+        params.update(_make_content_headers(virtual_name))
         if sign:
-            return self.bucket.sign_url('GET', name, 5 * 60,
+            return self.bucket.sign_url('GET', name, OSS_SIGNED_URL_EXPIRE,
                                         params=params)  # default access link expire time: 5min
         else:
             return self.bucket._make_url(self.bucket_name, name)
@@ -267,9 +275,6 @@ class AliyunMediaStorage(AliyunBaseStorage):
 class AliyunStaticStorage(AliyunBaseStorage):
     base_url = settings.STATIC_URL
     location = settings.STATIC_ROOT
-
-    def url(self, name, sign: bool = False):
-        return super().url(name, sign)
 
     def _save(self, name, content):
         path = super()._save(name, content)

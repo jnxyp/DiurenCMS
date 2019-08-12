@@ -14,8 +14,10 @@ urlpatterns = [
     path('directory/<int:pk>', views.CloudDirectoryView.as_view(), name='directory'),
     path('path/<str:path>', views.CloudPathView.as_view(), name='path'),
     # 上传下载授权接口
-    path('api/require-upload', views.CloudFileUploadRequestAPI, name='api-upload-request'),
-    path('api/require-download', views.CloudFileDownloadRequestAPI, name='api-download-request'),
+    path('api/require-upload/<int:pk>', views.CloudFileUploadRequestAPI.as_view(),
+         name='api-upload-request'),
+    path('api/require-download/<int:pk>', views.CloudFileDownloadRequestAPI.as_view(),
+         name='api-download-request'),
     # 本地上传接口
-    path('api/local-upload', views.CloudLocalFileUploadAPI, name='api-upload'),
+    path('api/local-upload/<int:pk>', views.CloudLocalFileUploadAPI.as_view(), name='api-upload'),
 ]

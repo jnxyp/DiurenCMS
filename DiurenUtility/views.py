@@ -13,7 +13,7 @@ class LoginRequiredAPIMixin:
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             response = {
-                'message': '需要登陆。',
+                'message': '需要登录。',
                 'code': 'login-required'
             }
             return JsonResponse(response, status=403)

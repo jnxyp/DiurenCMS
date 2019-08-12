@@ -22,8 +22,8 @@ urlpatterns = [
                   path('admin/', admin.site.urls),
                   path('account/', include('DiurenAccount.urls')),
                   path('utility/', include('DiurenUtility.urls')),
+                  path('cloud/', include('DiurenCloud.urls')),
               ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + \
               static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-# path('cloud/', include('DiurenCloud.urls')),
 # path('forum/', include('DiurenForum.urls')),
