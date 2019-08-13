@@ -1,6 +1,7 @@
 import hashlib
 
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.http import JsonResponse, HttpRequest
@@ -17,10 +18,11 @@ from django.views.generic import TemplateView, DetailView
 
 from DiurenCloud.apps import logger
 from DiurenCloud.models import CloudFile
+from DiurenUtility.aliyun_oss.storage import AliyunMediaStorage
 from DiurenUtility.views import LoginRequiredAPIMixin
 
 
-class CloudUserSelfView(TemplateView):
+class CloudUserSelfView(LoginRequiredMixin, TemplateView):
     pass
 
 
@@ -38,13 +40,6 @@ class CloudFileView(DetailView):
 
 class CloudPathView(TemplateView):
     pass
-
-
-# class GetObjectMixin:
-#     # todo 把下边这几个视图类的共用部分抽象一波
-#     def get_object(self, pk_kwarg_name: str = 'pk'):
-#         pk = self.kwargs.get(pk_kwarg_name)
-#         return self.model.objects.get(pk=pk)
 
 
 class CloudFileDownloadRequestAPI(LoginRequiredAPIMixin, View):
@@ -100,18 +95,28 @@ class CloudFileUploadRequestAPI(LoginRequiredAPIMixin, View):
             'code': 'upload-link-generated',
         }
         if settings.USE_OSS:
-            pass  # todo 看看oss怎么给post链接签名
+            from DiurenCloud.apps import SIGNED_URL_EXPIRE
+            oss_storage = self.object.storage  # type:AliyunMediaStorage
+            headers = {
+                'Content-MD5': self.object.md5
+            }
+            upload_url = oss_storage.bucket.sign_url('POST', self.object.path, SIGNED_URL_EXPIRE,
+                                                     headers=headers)
+            data.update({
+                'url': upload_url
+            })
         else:
             data.update({
                 'url': reverse('DiurenCloud:api-upload', kwargs={'pk': self.object.pk})
             })
         return JsonResponse(data, status=200)
 
+
 '''
 通过应用服务器直接上传文件
 注意：需通过 Cookie 提供 sessionid
 注意：需要设置 Content-type: multipart/form-data
-注意：接口会对上传的文件名、文件大小和MD5进行校验
+注意：接口会对上传的MD5进行校验
 
 调用方法：
 {"file":<文件>}
@@ -150,44 +155,25 @@ class CloudLocalFileUploadAPI(LoginRequiredAPIMixin, View):
         req = self.request  # type:HttpRequest
         file = req.FILES['file']
 
-        # todo 好大一坨...想办法改改
-        c_name = cloud_file.virtual_name
-        logger.debug('本地上传：验证文件名 {name1} {name2}'.format(name1=file.name, name2=c_name))
-        if file.name == c_name:
-            c_size = cloud_file.size
-            logger.debug('本地上传：验证大小 {size1} {size2}'.format(size1=file.size, size2=c_size))
-            if file.size == c_size:
-                file_md5 = self.md5(file)
-                c_md5 = cloud_file.md5
-                logger.debug('本地上传：验证MD5 {md51} {md52}'.format(md51=file_md5, md52=c_md5))
-                if file_md5 == c_md5:
-                    logger.debug('本地上传：验证通过√')
-                    if cloud_file.uploaded:
-                        msg = _('成功上传并替换当前文件。')
-                        del cloud_file.file
-                    else:
-                        msg = _('成功上传文件。'),
-                    cloud_file.file = file
-                    logger.debug('本地上传：保存完成，实际保存路径 {name}'.format(name=cloud_file.path))
-                else:
-                    data = {
-                        'message': _('文件md5校验失败。'),
-                        'code': 'file-md5-validation-failed',
-                    }
-                    return JsonResponse(data, status=400)
+        # MD5 校验
+        file_md5 = self.md5(file)
+        c_md5 = cloud_file.md5
+        logger.debug('本地上传：验证MD5 {md51} {md52}'.format(md51=file_md5, md52=c_md5))
+        if file_md5 == c_md5:
+            logger.debug('本地上传：验证通过√')
+            if cloud_file.uploaded:
+                msg = _('成功上传并替换当前文件。')
+                del cloud_file.file
             else:
-                data = {
-                    'message': _('文件大小校验失败。'),
-                    'code': 'file-size-validation-failed',
-                }
-                return JsonResponse(data, status=400)
+                msg = _('成功上传文件。'),
+            cloud_file.file = file
+            logger.debug('本地上传：保存完成，实际保存路径 {name}'.format(name=cloud_file.path))
         else:
             data = {
-                'message': _('文件名称校验失败。'),
-                'code': 'file-name-validation-failed',
+                'message': _('文件md5校验失败。'),
+                'code': 'file-md5-validation-failed',
             }
             return JsonResponse(data, status=400)
-
         data = {
             'message': msg,
             'code': 'file-uploaded',
