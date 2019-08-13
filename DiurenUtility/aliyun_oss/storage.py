@@ -21,6 +21,7 @@ from django.core.exceptions import ImproperlyConfigured, SuspiciousOperation
 from django.core.files.storage import Storage
 from django.conf import settings
 from oss2.api import _normalize_endpoint
+from oss2.auth import _param_to_quoted_query
 from oss2.models import PartInfo
 
 import logging
@@ -222,12 +223,14 @@ class AliyunBaseStorage(Storage):
     '''
     根据文件key生成对应的访问url
     :param name: 要生成链接的文件key
-    :param virtual_name: 可选，指定下载文件名称，仅在签名且文件扩展名不属于直接显示类别（如图片）时生效
+    :param virtual_name: 可选，指定下载文件名称，仅在文件扩展名不属于直接显示类别（如图片）时生效
     :param sign: 可选，是否需要对url进行签名。对于访问ACL为私有的文件，必须签名访问
     '''
+
     def url(self, name, virtual_name: str = None, sign: bool = True):
         name = self._get_target_name(name)
-        logger.debug('OSS存储后端：生成url {path}，签名：{sign}'.format(path=name, sign=sign))
+        logger.debug('OSS存储后端：生成url {path}，指定文件名称 {virtual_name}，签名：{sign}'
+                     .format(path=name, virtual_name=virtual_name, sign=sign))
         params = dict()
         if not virtual_name:
             virtual_name = name
@@ -236,7 +239,9 @@ class AliyunBaseStorage(Storage):
             return self.bucket.sign_url('GET', name, OSS_SIGNED_URL_EXPIRE,
                                         params=params)  # default access link expire time: 5min
         else:
-            return self.bucket._make_url(self.bucket_name, name)
+            url = self.bucket._make_url(self.bucket_name, name)
+            url += '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in params.items())
+            return url
 
     def read(self, name):
         pass
@@ -279,7 +284,7 @@ class AliyunStaticStorage(AliyunBaseStorage):
     def _save(self, name, content):
         path = super()._save(name, content)
         # 设置静态文件的访问权限为公共读
-        self.bucket.put_object_acl(self._get_target_name(name), OBJECT_ACL_PUBLIC_READ)
+        self.put_file_acl(name, OBJECT_ACL_PUBLIC_READ)
         return path
 
 
@@ -312,7 +317,7 @@ class AliyunFile(File):
 
     def write(self, content):
         if 'w' not in self._mode:
-            raise AliyunOperationError("Operation write is not allowed.")
+            raise AliyunOperationError("不允许写入。")
 
         self.file.write(force_bytes(content))
         self._is_dirty = True
