@@ -12,6 +12,7 @@ urlpatterns = [
 
     # 资料页
     path('user/<int:pk>', views.DiurenUserDetailView.as_view(), name='info'),
+    path('user/<str:username>', views.DiurenUserDetailView.as_view(), name='info-username'),
     re_path(r'^$', views.DiurenUserSelfView.as_view(), name='self'),
 
     # 注册

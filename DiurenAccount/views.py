@@ -31,6 +31,14 @@ class DiurenUserSelfView(TemplateView):
 
 
 class DiurenUserDetailView(DetailView):
+
+    def get_object(self, queryset=None):
+        username = self.kwargs.get('username', None)
+        if username:
+            return User.objects.get(username=username)
+        else:
+            return super().get_object(queryset)
+
     model = User
     template_name = 'account/user_detail.html'
 
