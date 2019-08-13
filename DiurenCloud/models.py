@@ -199,6 +199,10 @@ class CloudFile(CloudObject):
                 oss_storage.put_file_acl(self.path, OBJECT_ACL_DEFAULT)
         return instance
 
+    def delete(self, using=None, keep_parents=False):
+        del self.file
+        super().delete(using, keep_parents)
+
     def validate_unique(self, exclude=None):
         if hasattr(self, 'owner'):
             directories = CloudDirectory.objects.filter(parent=self.parent,
