@@ -22,23 +22,11 @@ from DiurenUtility.aliyun_oss.storage import AliyunMediaStorage
 from DiurenUtility.views import LoginRequiredAPIMixin
 
 
-class CloudUserSelfView(LoginRequiredMixin, TemplateView):
-    pass
-
-
-class CloudUserProfileView(DetailView):
-    pass
-
-
 class CloudDirectoryView(TemplateView):
     pass
 
 
 class CloudFileView(DetailView):
-    pass
-
-
-class CloudPathView(TemplateView):
     pass
 
 

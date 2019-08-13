@@ -6,13 +6,9 @@ from DiurenAccount.apps import TOKEN_LENGTH
 app_name = 'DiurenCloud'
 
 urlpatterns = [
-    # 资料页
-    path('user/<int:pk>', views.CloudUserProfileView.as_view(), name='info'),
-    re_path(r'^$', views.CloudUserSelfView.as_view(), name='self'),
     # 文件夹/文件显示页
     path('file/<int:pk>', views.CloudFileView.as_view(), name='file'),
     path('directory/<int:pk>', views.CloudDirectoryView.as_view(), name='directory'),
-    path('path/<str:path>', views.CloudPathView.as_view(), name='path'),
     # 上传下载授权接口
     path('api/require-upload/<int:pk>', views.CloudFileUploadRequestAPI.as_view(),
          name='api-upload-request'),
