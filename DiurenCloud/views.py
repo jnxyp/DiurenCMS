@@ -17,7 +17,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, DetailView
 
 from DiurenCloud.apps import logger
-from DiurenCloud.models import CloudFile
+from DiurenCloud.models import CloudFile, CloudObject
 from DiurenUtility.aliyun_oss.storage import AliyunMediaStorage
 from DiurenUtility.views import LoginRequiredAPIMixin
 
@@ -50,6 +50,7 @@ class CloudFileDownloadRequestAPI(LoginRequiredAPIMixin, View):
         return self.model.objects.get(pk=pk)
 
     def get(self, request, *args, **kwargs):
+        # 尝试获取该文件
         try:
             self.object = self.get_object()
         except self.model.DoesNotExist:
@@ -58,6 +59,14 @@ class CloudFileDownloadRequestAPI(LoginRequiredAPIMixin, View):
                 'code': 'file-does-not-exist',
             }
             return JsonResponse(data, status=404)
+        # 检查权限
+        if not self.object.check_perm(self.request.user.cloud_user, CloudObject.Permissions.READ):
+            data = {
+                'message': _('无权访问该文件。'),
+                'code': 'no-read-permission',
+            }
+            return JsonResponse(data, status=403)
+        # 生成下载url
         cloud_file = self.object  # type:CloudFile
         if cloud_file.uploaded:
             data = {
@@ -82,6 +91,7 @@ class CloudFileUploadRequestAPI(LoginRequiredAPIMixin, View):
         return self.model.objects.get(pk=pk)
 
     def get(self, request, *args, **kwargs):
+        # 尝试获取文件对象
         try:
             self.object = self.get_object()
         except self.model.DoesNotExist:
@@ -90,6 +100,14 @@ class CloudFileUploadRequestAPI(LoginRequiredAPIMixin, View):
                 'code': 'file-does-not-exist',
             }
             return JsonResponse(data, status=404)
+        # 检查权限
+        if not self.object.check_perm(self.request.user.cloud_user, CloudObject.Permissions.WRITE):
+            data = {
+                'message': _('无权写入该文件。'),
+                'code': 'no-write-permission',
+            }
+            return JsonResponse(data, status=403)
+        # 生成上传url
         data = {
             'message': _('成功生成上传url。'),
             'code': 'upload-link-generated',
@@ -141,6 +159,7 @@ class CloudLocalFileUploadAPI(LoginRequiredAPIMixin, View):
         return result
 
     def post(self, request, *args, **kwargs):
+        # 尝试获取文件
         try:
             self.object = self.get_object()
         except self.model.DoesNotExist:
@@ -151,6 +170,14 @@ class CloudLocalFileUploadAPI(LoginRequiredAPIMixin, View):
             return JsonResponse(data, status=404)
 
         cloud_file = self.object  # type:CloudFile
+
+        # 检查权限
+        if not self.object.check_perm(self.request.user.cloud_user, CloudObject.Permissions.WRITE):
+            data = {
+                'message': _('无权写入该文件。'),
+                'code': 'no-write-permission',
+            }
+            return JsonResponse(data, status=403)
 
         req = self.request  # type:HttpRequest
         file = req.FILES['file']

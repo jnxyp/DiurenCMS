@@ -1,4 +1,5 @@
 import hashlib
+from enum import Enum
 
 from django.conf import settings
 from django.conf.global_settings import MEDIA_ROOT
@@ -13,6 +14,8 @@ from django.dispatch import receiver
 from django.utils.translation import gettext, gettext_lazy as _
 
 # Create your models here.
+from oss2 import OBJECT_ACL_PUBLIC_READ, OBJECT_ACL_PRIVATE, OBJECT_ACL_DEFAULT
+
 from DiurenCloud.apps import USER_UPLOAD_PATH, logger
 from DiurenCloud.validators import validate_object_name_special_characters
 from DiurenUtility.aliyun_oss.storage import AliyunMediaStorage
@@ -34,6 +37,10 @@ class CloudUser(models.Model):
 
 
 class CloudObject(models.Model):
+    class Permissions(Enum):
+        READ = 'read'
+        WRITE = 'write'
+
     class Meta:
         abstract = True
 
@@ -45,6 +52,11 @@ class CloudObject(models.Model):
                                     validators=(validate_object_name_special_characters,))
 
     size = models.IntegerField(default=0)
+
+    can_read_users = models.ManyToManyField(to=CloudUser)
+    can_write_users = models.ManyToManyField(to=CloudUser)
+
+    public_read = models.BooleanField(verbose_name=_('公共读'), default=False)
 
     # 注意：所有路径均使用UNIX分隔符（‘/’）
     # 在存储后端上的真实路径
@@ -83,6 +95,15 @@ class CloudObject(models.Model):
             raise TypeError("Model instances without primary key value are unhashable")
         return hash(self.pk)
 
+    def check_perm(self, user: CloudUser, perm: str):
+        # 所有者默认拥有读写权限
+        if user == self.owner:
+            return True
+        if perm == CloudObject.Permissions.READ:
+            return self.public_read or user in self.can_read_users
+        if perm == CloudObject.Permissions.WRITE:
+            return user in self.can_write_users
+
     @property
     # (Media Root/)cloud/user/<username>/<path>
     def _path(self):
@@ -105,6 +126,8 @@ class CloudDirectory(CloudObject):
     owner = models.ForeignKey(to=CloudUser, on_delete=models.CASCADE, related_name='directories')
     parent = models.ForeignKey(to='self', on_delete=models.CASCADE, related_name='directories',
                                null=True, blank=True)
+    can_read_users = models.ManyToManyField(to=CloudUser, related_name='can_read_directories')
+    can_write_users = models.ManyToManyField(to=CloudUser, related_name='can_write_directories')
 
     def save(self, force_insert=False, force_update=False, using=None,
              update_fields=None):
@@ -150,6 +173,8 @@ class CloudFile(CloudObject):
     owner = models.ForeignKey(to=CloudUser, on_delete=models.CASCADE, related_name='files')
     parent = models.ForeignKey(to=CloudDirectory, on_delete=models.CASCADE, related_name='files',
                                null=True, blank=True)
+    can_read_users = models.ManyToManyField(to=CloudUser, related_name='can_read_files')
+    can_write_users = models.ManyToManyField(to=CloudUser, related_name='can_write_files')
 
     md5 = models.CharField(max_length=32)
     uploaded = models.BooleanField(default=False)
@@ -158,11 +183,20 @@ class CloudFile(CloudObject):
         super().__init__(*args, **kwargs)
         self.storage = default_storage  # type:Storage
 
+        self.__original_public_read = self.public_read
+
     def save(self, force_insert=False, force_update=False, using=None,
              update_fields=None):
         instance = super().save(force_insert, force_update, using, update_fields)
         # 重新保存 parent CloudDirectory 以刷新其大小
-        self.parent.save()
+        self.parent.save(update_fields=['size'])
+        # 如果public_read属性发生变化，更新OSS的文件ACL
+        if settings.USE_OSS and self.public_read != self.__original_public_read:
+            oss_storage = self.storage  # type:AliyunMediaStorage
+            if self.public_read:
+                oss_storage.put_file_acl(self.path, OBJECT_ACL_PUBLIC_READ)
+            else:
+                oss_storage.put_file_acl(self.path, OBJECT_ACL_DEFAULT)
         return instance
 
     def validate_unique(self, exclude=None):
@@ -193,11 +227,12 @@ class CloudFile(CloudObject):
     @property
     def url(self):
         if self.uploaded:
-            # todo 此部分逻辑可能存在问题，需要测试
             # 如果使用阿里云存储，传递虚拟名称参数，以使用户下载的文件名与虚拟名称一致
+            # 如果文件权限为公共读，不签名
             if settings.USE_OSS:
                 oss_storage = self.storage  # type:AliyunMediaStorage
-                return oss_storage.url(self.path, virtual_name=self.virtual_name)
+                return oss_storage.url(self.path, virtual_name=self.virtual_name,
+                                       sign=not self.public_read)
             return self.storage.url(self.path)
         else:
             return None
@@ -211,6 +246,7 @@ class CloudFile(CloudObject):
     def file(self, file_obj: File):
         self.path = self.storage.save(self.path, file_obj)
         self.name = self.path.split('/')[-1]
+        # 注：根据public_read修改ACL的部分在save方法里
         logger.debug('云文件：保存文件 {file}'.format(file=self))
         self.uploaded = True
 

@@ -27,3 +27,7 @@
 5. `python manage.py collectstatic -c --noinput`
 6. `python manage.py migrate`
 7. `python manage.py runserver 0.0.0.0:8000`
+
+## 外部系统配置
+- 阿里云OSS
+    - Bucket的默认权限应设为`私有`
