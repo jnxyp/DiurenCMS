@@ -44,6 +44,8 @@ class CloudObject(models.Model):
     virtual_name = models.CharField(max_length=128,
                                     validators=(validate_object_name_special_characters,))
 
+    size = models.IntegerField(default=0)
+
     # 注意：所有路径均使用UNIX分隔符（‘/’）
     # 在存储后端上的真实路径
     path = models.CharField(max_length=256, blank=True, editable=False, auto_created=True)
@@ -104,6 +106,13 @@ class CloudDirectory(CloudObject):
     parent = models.ForeignKey(to='self', on_delete=models.CASCADE, related_name='directories',
                                null=True, blank=True)
 
+    def save(self, force_insert=False, force_update=False, using=None,
+             update_fields=None):
+        # 重新计算文件夹大小
+        self.size = self._size
+        instance = super().save(force_insert, force_update, using, update_fields)
+        return instance
+
     def validate_unique(self, exclude=None):
         if hasattr(self, 'owner'):
             directories = CloudDirectory.objects.filter(parent=self.parent,
@@ -129,19 +138,32 @@ class CloudDirectory(CloudObject):
     def _virtual_path(self):
         return super()._virtual_path + '/'
 
+    @property
+    def _size(self):
+        return sum([f.size for f in
+                    CloudFile.objects.filter(virtual_path__startswith=self.virtual_path)]) + \
+               sum([d.size for d in
+                    CloudDirectory.objects.filter(virtual_path__startswith=self.virtual_path)])
+
 
 class CloudFile(CloudObject):
     owner = models.ForeignKey(to=CloudUser, on_delete=models.CASCADE, related_name='files')
     parent = models.ForeignKey(to=CloudDirectory, on_delete=models.CASCADE, related_name='files',
                                null=True, blank=True)
 
-    size = models.IntegerField(default=0)
     md5 = models.CharField(max_length=32)
     uploaded = models.BooleanField(default=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.storage = default_storage  # type:Storage
+
+    def save(self, force_insert=False, force_update=False, using=None,
+             update_fields=None):
+        instance = super().save(force_insert, force_update, using, update_fields)
+        # 重新保存 parent CloudDirectory 以刷新其大小
+        self.parent.save()
+        return instance
 
     def validate_unique(self, exclude=None):
         if hasattr(self, 'owner'):
